@@ -27,6 +27,12 @@ registerTool({ id: 'integrations', label: 'Integrations', pillar: 'engagement', 
 registerTool({ id: 'api-keys', label: 'API', pillar: 'automation', icon: '🔑', route: '/api-keys', sprint: 6 });
 registerTool({ id: 'bulk-credits', label: 'Bulk Credits', pillar: 'automation', icon: '📦', route: '/bulk-credits', sprint: 6 });
 
+// Sprint 7 — BizReach Route Tab integration
+registerTool({ id: 'lead-router', label: 'Lead Router', pillar: 'automation', icon: '💰', route: '/lead-router', sprint: 7 });
+
+// Sprint 8 — BizReach Money Tab integration
+registerTool({ id: 'revenue', label: 'Revenue', pillar: 'automation', icon: '💵', route: '/revenue', sprint: 8 });
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

@@ -31,10 +31,19 @@ class AutopilotRunResult:
 
 
 class AutopilotRunner:
-    async def enable(self, tenant_id: str, icp: dict, schedule_hours: int = 24) -> dict:
+    async def enable(
+        self,
+        tenant_id: str,
+        icp: dict,
+        schedule_hours: int = 24,
+        route_after_warp: bool = False,
+        route_marketplace_id: str = "",
+        route_min_score: int = 60,
+    ) -> dict:
         """
         Save or update autopilot config for a tenant. Upsert on tenant_id.
         schedule_hours: run interval (24 = daily, 12 = every 12h, etc.)
+        route_after_warp: if True, dispatch newly found leads to a marketplace after each Warp run.
         """
         try:
             row = {
@@ -43,6 +52,9 @@ class AutopilotRunner:
                 "icp": icp,
                 "schedule_hours": max(1, schedule_hours),
                 "daily_send_limit": DEFAULT_DAILY_SEND_LIMIT,
+                "route_after_warp": route_after_warp,
+                "route_marketplace_id": route_marketplace_id,
+                "route_min_score": route_min_score,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             existing = (
@@ -158,6 +170,33 @@ class AutopilotRunner:
         }
         self._log_run(tenant_id, run_stats)
 
+        # Route-after-Warp: dispatch qualifying leads to configured marketplace
+        route_marketplace_id = config.get("route_marketplace_id", "")
+        if config.get("route_after_warp") and route_marketplace_id:
+            try:
+                from modules.m4_inbound.marketplace_router import MarketplaceRouter
+                route_min_score = config.get("route_min_score", 60)
+                router = MarketplaceRouter()
+                # Pull recently enriched leads above the score threshold
+                leads_to_route = self._get_routable_leads(
+                    tenant_id=tenant_id,
+                    min_score=route_min_score,
+                    limit=result.leads_found,
+                )
+                if leads_to_route:
+                    await router.dispatch(
+                        tenant_id=tenant_id,
+                        marketplace_id=route_marketplace_id,
+                        leads=leads_to_route,
+                        ping_post=False,
+                    )
+                    logger.info(
+                        "[autopilot] route-after-warp dispatched %d leads → %s",
+                        len(leads_to_route), route_marketplace_id,
+                    )
+            except Exception as exc:
+                logger.warning("[autopilot] route-after-warp failed: %s", exc)
+
         return AutopilotRunResult(
             tenant_id=tenant_id,
             job_id=result.job_id,
@@ -169,6 +208,30 @@ class AutopilotRunner:
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _get_routable_leads(self, tenant_id: str, min_score: int, limit: int) -> list[dict]:
+        """Pull recently enriched contacts above min_score for route-after-warp dispatch."""
+        try:
+            from modules.m2_outreach.email_sequence import EmailSequenceService
+            svc = EmailSequenceService()
+            result = (
+                _db().table("urap_contacts")
+                .select("*")
+                .eq("tenant_id", tenant_id)
+                .is_("routed_at", "null")
+                .limit(min(limit * 2, 100))
+                .execute()
+            )
+            contacts = result.data or []
+            scored = [
+                {**c, "score": svc.score_intent(c)}
+                for c in contacts
+                if svc.score_intent(c) >= min_score
+            ]
+            return sorted(scored, key=lambda x: x["score"], reverse=True)[:limit]
+        except Exception as exc:
+            logger.warning("[autopilot] _get_routable_leads error: %s", exc)
+            return []
 
     def _unsubscribe_rate(self, tenant_id: str) -> float:
         """Compute unsubscribe rate = unsubscribed / total leads in last 7 days."""

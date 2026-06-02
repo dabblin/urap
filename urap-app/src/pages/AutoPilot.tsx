@@ -8,6 +8,9 @@ interface AutopilotConfig {
   enabled: boolean;
   icp: Record<string, unknown>;
   schedule_hours: number;
+  route_after_warp?: boolean;
+  route_marketplace_id?: string;
+  route_min_score?: number;
   last_run_at?: string;
   last_run_stats?: {
     leads_found: number;
@@ -16,6 +19,13 @@ interface AutopilotConfig {
     paused: boolean;
     pause_reason: string;
   };
+}
+
+interface MarketplaceOption {
+  id: string;
+  name: string;
+  cpl_range: string;
+  configured: boolean;
 }
 
 interface RunResult {
@@ -37,6 +47,12 @@ const DEFAULT_ICP = {
   limit: 25,
 };
 
+const DEFAULT_ROUTE = {
+  route_after_warp: false,
+  route_marketplace_id: '',
+  route_min_score: 60,
+};
+
 function headers() {
   return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-tenant-id': TENANT };
 }
@@ -45,12 +61,14 @@ export function AutoPilot() {
   const [config, setConfig] = useState<AutopilotConfig | null>(null);
   const [icp, setIcp] = useState(DEFAULT_ICP);
   const [scheduleHours, setScheduleHours] = useState(24);
+  const [routeConfig, setRouteConfig] = useState(DEFAULT_ROUTE);
+  const [marketplaces, setMarketplaces] = useState<MarketplaceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
 
-  useEffect(() => { fetchConfig(); }, []);
+  useEffect(() => { fetchConfig(); fetchMarketplaces(); }, []);
 
   async function fetchConfig() {
     setLoading(true);
@@ -62,6 +80,11 @@ export function AutoPilot() {
         setIcp({ ...DEFAULT_ICP, ...(data.icp as typeof DEFAULT_ICP) });
       }
       if (data.schedule_hours) setScheduleHours(data.schedule_hours);
+      setRouteConfig({
+        route_after_warp:    data.route_after_warp    ?? false,
+        route_marketplace_id: data.route_marketplace_id ?? '',
+        route_min_score:     data.route_min_score     ?? 60,
+      });
     } catch {/* silent */} finally {
       setLoading(false);
     }
@@ -78,7 +101,13 @@ export function AutoPilot() {
         const res = await fetch(`${ENGINE}/autopilot/enable`, {
           method: 'POST',
           headers: headers(),
-          body: JSON.stringify({ icp, schedule_hours: scheduleHours }),
+          body: JSON.stringify({
+            icp,
+            schedule_hours: scheduleHours,
+            route_after_warp:    routeConfig.route_after_warp,
+            route_marketplace_id: routeConfig.route_marketplace_id || null,
+            route_min_score:     routeConfig.route_min_score,
+          }),
         });
         const data = await res.json();
         if (data.success) setConfig(c => c ? { ...c, enabled: true, icp, schedule_hours: scheduleHours } : c);
@@ -86,6 +115,14 @@ export function AutoPilot() {
     } catch {/* silent */} finally {
       setToggling(false);
     }
+  }
+
+  async function fetchMarketplaces() {
+    try {
+      const res = await fetch(`${ENGINE}/route/marketplaces`, { headers: headers() });
+      const data = await res.json();
+      setMarketplaces((data.marketplaces || []).filter((m: MarketplaceOption) => m.configured));
+    } catch {/* silent */}
   }
 
   async function handleRunNow() {
@@ -174,6 +211,49 @@ export function AutoPilot() {
               onChange={e => setIcp(f => ({ ...f, limit: parseInt(e.target.value, 10) || 25 }))}
             />
           </div>
+        </div>
+
+        {/* Route Config — dispatch leads to marketplace after each Warp run */}
+        <div className="rounded border border-gray-800 bg-gray-900 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-300 font-medium">Route after Warp</p>
+              <p className="text-xs text-gray-600">Dispatch qualifying leads to a buyer marketplace after each run</p>
+            </div>
+            <button
+              onClick={() => setRouteConfig(r => ({ ...r, route_after_warp: !r.route_after_warp }))}
+              className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ml-2 ${routeConfig.route_after_warp ? 'bg-emerald-600' : 'bg-gray-700'}`}
+            >
+              <span className={`block w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${routeConfig.route_after_warp ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          {routeConfig.route_after_warp && (
+            <>
+              <select
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                value={routeConfig.route_marketplace_id}
+                onChange={e => setRouteConfig(r => ({ ...r, route_marketplace_id: e.target.value }))}
+              >
+                <option value="">— Select marketplace —</option>
+                {marketplaces.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} · {m.cpl_range}</option>
+                ))}
+              </select>
+              {marketplaces.length === 0 && (
+                <p className="text-xs text-yellow-500">No configured marketplaces. Add webhook URLs in Integrations → Marketplaces.</p>
+              )}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-24 flex-shrink-0">Min Score</label>
+                <input
+                  type="number" min={0} max={100} step={5}
+                  className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-white w-full focus:outline-none focus:border-emerald-500"
+                  value={routeConfig.route_min_score}
+                  onChange={e => setRouteConfig(r => ({ ...r, route_min_score: parseInt(e.target.value, 10) || 60 }))}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <button

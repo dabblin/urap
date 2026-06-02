@@ -25,6 +25,8 @@ from modules.m4_inbound.lead_router import LeadRouterService
 from modules.m5_api.api_key_manager import ApiKeyManager
 from modules.m5_api.bulk_enrich_runner import BulkEnrichRunner
 from modules.m5_api.autopilot_runner import AutopilotRunner
+from modules.m4_inbound.marketplace_router import MarketplaceRouter
+from modules.m4_inbound.race_agents import RaceAuction
 from modules.m1_intelligence.company_search import search_companies
 
 app = FastAPI(title="URAP Engine", version="0.1.0")
@@ -46,6 +48,8 @@ _lead_router = LeadRouterService()
 _api_keys = ApiKeyManager()
 _bulk_enrich = BulkEnrichRunner()
 _autopilot = AutopilotRunner()
+_marketplace = MarketplaceRouter()
+_race = RaceAuction()
 
 
 # ── Request models ────────────────────────────────────────────────────────────
@@ -164,6 +168,31 @@ class BulkEnrichIcpRequest(BaseModel):
 class AutopilotConfigRequest(BaseModel):
     icp: dict
     schedule_hours: int = 24
+    route_after_warp: bool = False
+    route_marketplace_id: Optional[str] = None
+    route_min_score: int = 60
+
+
+class MarketplaceConfigRequest(BaseModel):
+    webhook_url: str
+    api_key: Optional[str] = None
+    cpl: float = 0.0
+
+
+class WebhookTestRequest(BaseModel):
+    webhook_url: str
+    api_key: Optional[str] = None
+
+
+class RouteDispatchRequest(BaseModel):
+    marketplace_id: str = ""
+    leads: list[dict]
+    ping_post: bool = False
+
+
+class RaceDispatchRequest(BaseModel):
+    leads: list[dict]
+    timeout: float = 5.0
 
 
 class CompanySearchRequest(BaseModel):
@@ -769,6 +798,9 @@ async def autopilot_enable(body: AutopilotConfigRequest, x_tenant_id: str = Head
         tenant_id=x_tenant_id,
         icp=body.icp,
         schedule_hours=body.schedule_hours,
+        route_after_warp=body.route_after_warp,
+        route_marketplace_id=body.route_marketplace_id or "",
+        route_min_score=body.route_min_score,
     )
 
 
@@ -962,6 +994,117 @@ async def brevo_webhook(request: Request):
 async def receive_webhook(module: str, request: Request):
     payload = await request.json()
     return {"status": "received", "module": module, "keys": list(payload.keys()) if isinstance(payload, dict) else []}
+
+
+# ── Sprint 7 — Route Tab: Marketplace Webhook Router ─────────────────────────
+
+@app.get("/route/marketplaces", dependencies=[Depends(require_api_key)])
+async def route_get_marketplaces(x_tenant_id: str = Header(...)):
+    """Return all 18 marketplace catalog entries merged with tenant webhook configs."""
+    marketplaces = _marketplace.get_marketplace_configs(tenant_id=x_tenant_id)
+    return {"marketplaces": marketplaces, "count": len(marketplaces)}
+
+
+@app.post("/route/marketplace/{marketplace_id}", dependencies=[Depends(require_api_key)])
+async def route_save_marketplace(
+    marketplace_id: str,
+    body: MarketplaceConfigRequest,
+    x_tenant_id: str = Header(...),
+):
+    """Save or update webhook URL, API key, and CPL target for a marketplace."""
+    result = _marketplace.save_marketplace_config(
+        tenant_id=x_tenant_id,
+        marketplace_id=marketplace_id,
+        webhook_url=body.webhook_url,
+        api_key=body.api_key or "",
+        cpl=body.cpl,
+    )
+    return result
+
+
+@app.post("/route/test-webhook", dependencies=[Depends(require_api_key)])
+async def route_test_webhook(body: WebhookTestRequest, x_tenant_id: str = Header(...)):
+    """Send a sample lead payload to a webhook URL and return the HTTP result."""
+    result = await _marketplace.test_webhook(
+        webhook_url=body.webhook_url,
+        api_key=body.api_key or "",
+    )
+    return result
+
+
+@app.post("/route/dispatch", dependencies=[Depends(require_api_key)])
+async def route_dispatch(body: RouteDispatchRequest, x_tenant_id: str = Header(...)):
+    """
+    Route selected leads to a buyer marketplace webhook.
+    ping_post=True dispatches to all configured marketplaces simultaneously.
+    TCPA compliance is the caller's responsibility — consent records must exist.
+    """
+    result = await _marketplace.dispatch(
+        tenant_id=x_tenant_id,
+        marketplace_id=body.marketplace_id,
+        leads=body.leads,
+        ping_post=body.ping_post,
+    )
+    return {
+        "session_id":         result.session_id,
+        "marketplace_id":     result.marketplace_id,
+        "marketplace_name":   result.marketplace_name,
+        "leads_routed":       result.leads_routed,
+        "estimated_earnings": result.estimated_earnings,
+        "failed":             result.failed,
+        "error":              result.error,
+    }
+
+
+@app.get("/route/sessions", dependencies=[Depends(require_api_key)])
+async def route_sessions(x_tenant_id: str = Header(...), limit: int = 20):
+    """Return recent routing sessions with earnings for this tenant."""
+    sessions = _marketplace.get_sessions(tenant_id=x_tenant_id, limit=min(limit, 50))
+    total_earned = sum(s.get("estimated_earnings", 0) for s in sessions)
+    return {"sessions": sessions, "count": len(sessions), "total_earned": total_earned}
+
+
+# ── Sprint 8 — Race Agents: CPL Auction (Bass.EXE) ───────────────────────────
+
+@app.post("/race/run", dependencies=[Depends(require_api_key)])
+async def race_run(body: RaceDispatchRequest, x_tenant_id: str = Header(...)):
+    """
+    Run CPL auction across all configured marketplaces.
+    Pings all simultaneously, routes each lead to the highest bidder.
+    Returns per-lead auction results.
+    """
+    results = await _race.run_bulk(
+        tenant_id=x_tenant_id,
+        leads=body.leads,
+        timeout=body.timeout,
+    )
+    serialized = [
+        {
+            "auction_id":              r.auction_id,
+            "lead_id":                 r.lead_id,
+            "winner_marketplace_id":   r.winner_marketplace_id,
+            "winner_marketplace_name": r.winner_marketplace_name,
+            "winning_cpl":             r.winning_cpl,
+            "all_bids":                r.all_bids,
+            "dispatched":              r.dispatched,
+            "error":                   r.error,
+            "created_at":              r.created_at,
+        }
+        for r in results
+    ]
+    total_earned = sum(r.winning_cpl for r in results if r.dispatched)
+    return {
+        "results":       serialized,
+        "total_auctions": len(results),
+        "auctions_won":  sum(1 for r in results if r.dispatched),
+        "total_earned":  round(total_earned, 2),
+    }
+
+
+@app.get("/race/results", dependencies=[Depends(require_api_key)])
+async def race_results(x_tenant_id: str = Header(...), limit: int = 20):
+    """Return recent CPL auction results + aggregate stats for this tenant."""
+    return _race.get_results(tenant_id=x_tenant_id, limit=min(limit, 50))
 
 
 # ── Background: hourly sequence tick ─────────────────────────────────────────
