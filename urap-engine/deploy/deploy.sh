@@ -36,10 +36,28 @@ ENGINE_ROOT="$(dirname "${SCRIPT_DIR}")"
 
 echo "==> Building Docker image..."
 cd "${ENGINE_ROOT}"
+TAG=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)
+IMAGE_TAGGED="${IMAGE}:${TAG}"
+
+# Cloud Build inline config — avoids deprecated --dockerfile flag
 gcloud builds submit \
-  --tag "${IMAGE}" \
-  --dockerfile deploy/Dockerfile \
-  .
+  --config /dev/stdin \
+  . << CLOUDBUILD
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/Dockerfile
+      - -t
+      - ${IMAGE_TAGGED}
+      - -t
+      - ${IMAGE}:latest
+      - .
+images:
+  - ${IMAGE_TAGGED}
+  - ${IMAGE}:latest
+CLOUDBUILD
 
 # ── Deploy to Cloud Run ───────────────────────────────────────────────────────
 echo "==> Deploying to Cloud Run..."
@@ -54,7 +72,7 @@ fi
 
 DEPLOY_ARGS=(
   run deploy "${SERVICE_NAME}"
-  --image "${IMAGE}"
+  --image "${IMAGE_TAGGED}"
   --region "${REGION}"
   --platform managed
   --allow-unauthenticated

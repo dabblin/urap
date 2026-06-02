@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { ContactResult } from '../types.js';
 
-const ENGINE = 'http://localhost:8080';
-const TENANT = 'dev-tenant';
+import { ENGINE, TENANT } from '../lib/config.js';
 const API_KEY = '';
 
 interface ScoredContact {

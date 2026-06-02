@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const ENGINE = 'http://localhost:8080';
-const TENANT = 'dev-tenant';
+import { ENGINE, TENANT } from '../lib/config.js';
 const API_KEY = '';
 
 interface AutopilotConfig {

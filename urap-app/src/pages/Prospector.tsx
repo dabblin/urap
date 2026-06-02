@@ -1,12 +1,9 @@
 import { useState } from 'react';
+import { ENGINE, TENANT } from '../lib/config.js';
 import type { ContactResult } from '../types.js';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
-const ENGINE_URL = (import.meta as unknown as { env: Record<string, string> }).env
-  .VITE_ENGINE_URL ?? 'http://localhost:8080';
-const TENANT_ID  = (import.meta as unknown as { env: Record<string, string> }).env
-  .VITE_TENANT_ID  ?? 'local';
 const USER_NAME  = (import.meta as unknown as { env: Record<string, string> }).env
   .VITE_USER_NAME  ?? 'there';
 
@@ -242,9 +239,9 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
         ? { domain: (domain || title).trim(), limit: 25 }
         : { domain: domain.trim(), title: title.trim() };
 
-      const resp = await fetch(`${ENGINE_URL}${endpoint}`, {
+      const resp = await fetch(`${ENGINE}${endpoint}`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body:    JSON.stringify(body),
       });
       if (!resp.ok) throw new Error(`Engine ${resp.status}: ${await resp.text()}`);

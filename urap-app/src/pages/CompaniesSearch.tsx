@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ENGINE, TENANT } from '../lib/config.js';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
-const ENGINE_URL = (import.meta as unknown as { env: Record<string, string> }).env
-  .VITE_ENGINE_URL ?? 'http://localhost:8080';
-const TENANT_ID  = (import.meta as unknown as { env: Record<string, string> }).env
-  .VITE_TENANT_ID  ?? 'local';
 const USER_NAME  = (import.meta as unknown as { env: Record<string, string> }).env
   .VITE_USER_NAME  ?? 'there';
 
@@ -127,9 +124,9 @@ function ComposeModal({ toEmail, toName, company, onClose, onSent, onDrip }: Com
     if (!fromEmail || !subject || !body) { setError('From email, subject, and body are required.'); return; }
     setSending(true); setError('');
     try {
-      const resp = await fetch(`${ENGINE_URL}/outreach/email/send`, {
+      const resp = await fetch(`${ENGINE}/outreach/email/send`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body: JSON.stringify({
           lead_id:    toEmail,
           to_email:   toEmail,
@@ -271,9 +268,9 @@ function SequenceBuilderModal({ toEmail, toName, company, onClose, onQueued }: S
     setSaving(true); setError('');
     try {
       // 1. Create sequence template
-      const createResp = await fetch(`${ENGINE_URL}/outreach/sequence/create`, {
+      const createResp = await fetch(`${ENGINE}/outreach/sequence/create`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body: JSON.stringify({
           name: seqName,
           from_email: fromEmail,
@@ -285,9 +282,9 @@ function SequenceBuilderModal({ toEmail, toName, company, onClose, onQueued }: S
       if (!created.sequence_id) throw new Error(created.detail || 'Create failed');
 
       // 2. Enroll contact
-      const enrollResp = await fetch(`${ENGINE_URL}/outreach/sequence/enroll`, {
+      const enrollResp = await fetch(`${ENGINE}/outreach/sequence/enroll`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body: JSON.stringify({
           sequence_id: created.sequence_id,
           to_email:    toEmail,
@@ -430,7 +427,7 @@ function AutopilotModal({ onClose }: AutopilotModalProps) {
   const [error,      setError]      = useState('');
 
   useEffect(() => {
-    fetch(`${ENGINE_URL}/outreach/sequences`, { headers: { 'x-tenant-id': TENANT_ID } })
+    fetch(`${ENGINE}/outreach/sequences`, { headers: { 'x-tenant-id': TENANT } })
       .then(r => r.json())
       .then(d => { setSequences(d.sequences ?? []); if (d.sequences?.length) setSeqId(d.sequences[0].id); })
       .catch(() => {});
@@ -441,9 +438,9 @@ function AutopilotModal({ onClose }: AutopilotModalProps) {
     if (!keywords && !location && !industry) { setError('Add at least one ICP filter.'); return; }
     setRunning(true); setError(''); setResult(null);
     try {
-      const resp = await fetch(`${ENGINE_URL}/outreach/autopilot/run-icp`, {
+      const resp = await fetch(`${ENGINE}/outreach/autopilot/run-icp`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body: JSON.stringify({ keywords, location, industry, limit, sequence_id: seqId }),
       });
       if (!resp.ok) throw new Error(await resp.text());
@@ -1167,9 +1164,9 @@ export function CompaniesSearch() {
       if (keywords) body.keywords = keywords;
       if (location) body.location = location;
       if (industry) body.industry = industry;
-      const resp = await fetch(`${ENGINE_URL}/companies/search`, {
+      const resp = await fetch(`${ENGINE}/companies/search`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body:    JSON.stringify(body),
       });
       if (!resp.ok) throw new Error(`Engine ${resp.status}: ${await resp.text()}`);
@@ -1216,9 +1213,9 @@ export function CompaniesSearch() {
     try {
       const cleanDomain  = isListingDomain(c.domain  || '') ? '' : (c.domain  || '');
       const cleanWebsite = isListingDomain(c.website || '') ? '' : (c.website || '');
-      const resp = await fetch(`${ENGINE_URL}/companies/contact`, {
+      const resp = await fetch(`${ENGINE}/companies/contact`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body:    JSON.stringify({ name: c.name, domain: cleanDomain, website: cleanWebsite, phone: c.phone, yelp_id: c.yelp_id || '' }),
       });
       if (!resp.ok) throw new Error('enrich failed');
@@ -1294,8 +1291,8 @@ export function CompaniesSearch() {
   const loadLists = useCallback(async () => {
     setListsLoading(true);
     try {
-      const resp = await fetch(`${ENGINE_URL}/companies/lists`, {
-        headers: { 'x-tenant-id': TENANT_ID },
+      const resp = await fetch(`${ENGINE}/companies/lists`, {
+        headers: { 'x-tenant-id': TENANT },
       });
       if (!resp.ok) return;
       const d = await resp.json();
@@ -1328,9 +1325,9 @@ export function CompaniesSearch() {
         };
       });
 
-      const resp = await fetch(`${ENGINE_URL}/companies/list/save`, {
+      const resp = await fetch(`${ENGINE}/companies/list/save`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
         body:    JSON.stringify({ name, items }),
       });
       if (!resp.ok) throw new Error('save failed');
@@ -1352,8 +1349,8 @@ export function CompaniesSearch() {
     setExpandedList(list);
     setListItemsLoading(true);
     try {
-      const resp = await fetch(`${ENGINE_URL}/companies/list/${list.id}`, {
-        headers: { 'x-tenant-id': TENANT_ID },
+      const resp = await fetch(`${ENGINE}/companies/list/${list.id}`, {
+        headers: { 'x-tenant-id': TENANT },
       });
       if (!resp.ok) return;
       const d = await resp.json();
@@ -1365,9 +1362,9 @@ export function CompaniesSearch() {
 
   async function handleDeleteList(id: string) {
     try {
-      await fetch(`${ENGINE_URL}/companies/list/${id}`, {
+      await fetch(`${ENGINE}/companies/list/${id}`, {
         method:  'DELETE',
-        headers: { 'x-tenant-id': TENANT_ID },
+        headers: { 'x-tenant-id': TENANT },
       });
       if (expandedList?.id === id) {
         setExpandedList(null);
