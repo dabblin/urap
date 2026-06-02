@@ -582,16 +582,18 @@ function AutopilotModal({ onClose }: AutopilotModalProps) {
 // ── FilterPanel ───────────────────────────────────────────────────────────────
 
 interface FilterPanelProps {
-  filters:      FilterValues;
-  onChange:     (id: FilterId, val: string) => void;
-  onSearch:     () => void;
-  onAddToList:  () => void;
-  loading:      boolean;
-  visible:      boolean;
-  hasResults:   boolean;
+  filters:       FilterValues;
+  onChange:      (id: FilterId, val: string) => void;
+  onSearch:      () => void;
+  onAddToList:   () => void;
+  loading:       boolean;
+  visible:       boolean;
+  hasResults:    boolean;
+  mobileOpen:    boolean;
+  onMobileClose: () => void;
 }
 
-function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visible, hasResults }: FilterPanelProps) {
+function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visible, hasResults, mobileOpen, onMobileClose }: FilterPanelProps) {
   const [expanded, setExpanded] = useState<Set<FilterId>>(new Set(['name', 'domain']));
 
   function toggle(id: FilterId) {
@@ -600,10 +602,8 @@ function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visibl
 
   const activeCount = Object.values(filters).filter(v => v.trim()).length;
 
-  if (!visible) return null;
-
-  return (
-    <aside className="w-[272px] shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col h-full">
+  const panelContent = (
+    <>
       <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-white">Filters</span>
@@ -614,13 +614,22 @@ function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visibl
           )}
         </div>
         <div className="flex items-center gap-0.5">
-          {[['📁','Save filter set'],['🔖','Saved searches'],['🕐','Search history']].map(([icon, title]) => (
-            <button key={title} title={title}
-              className="w-7 h-7 flex items-center justify-center text-gray-500
-                         hover:text-gray-300 hover:bg-gray-800 rounded transition-colors text-sm">
-              {icon}
-            </button>
-          ))}
+          <div className="hidden md:flex items-center gap-0.5">
+            {[['📁','Save filter set'],['🔖','Saved searches'],['🕐','Search history']].map(([icon, title]) => (
+              <button key={title} title={title}
+                className="w-7 h-7 flex items-center justify-center text-gray-500
+                           hover:text-gray-300 hover:bg-gray-800 rounded transition-colors text-sm">
+                {icon}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={onMobileClose}
+            className="md:hidden w-8 h-8 flex items-center justify-center text-gray-400
+                       hover:text-white text-xl leading-none"
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -686,7 +695,7 @@ function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visibl
 
       <div className="p-3 border-t border-gray-800 shrink-0">
         <button
-          onClick={onSearch}
+          onClick={() => { onSearch(); if (mobileOpen) onMobileClose(); }}
           disabled={loading}
           className="w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-white text-sm
                      font-medium rounded-lg transition-colors disabled:opacity-50"
@@ -694,7 +703,39 @@ function FilterPanel({ filters, onChange, onSearch, onAddToList, loading, visibl
           {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-50 w-[300px] max-w-[85vw]',
+          'bg-gray-900 border-r border-gray-800 flex flex-col',
+          'transition-transform duration-200',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:hidden',
+        ].join(' ')}
+      >
+        {panelContent}
+      </aside>
+
+      {/* Desktop aside */}
+      {visible && (
+        <aside className="hidden md:flex w-[272px] shrink-0 bg-gray-900 border-r border-gray-800 flex-col h-full">
+          {panelContent}
+        </aside>
+      )}
+    </>
   );
 }
 
@@ -877,7 +918,7 @@ function MyListsPanel({ lists, loading, onDelete, onViewItems, onClose }: MyList
             </div>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="sticky top-0 z-10 bg-gray-950">
               <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                 <th className="px-5 py-3 text-left font-medium">Name</th>
@@ -1000,7 +1041,7 @@ function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy }: List
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="sticky top-0 z-10 bg-gray-950">
               <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                 <th className="px-5 py-3 text-left font-medium">Company</th>
@@ -1065,12 +1106,13 @@ function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy }: List
 // ── CompaniesSearch ───────────────────────────────────────────────────────────
 
 export function CompaniesSearch() {
-  const [filters, setFilters]             = useState<FilterValues>(EMPTY_FILTERS);
-  const [aiQuery, setAiQuery]             = useState('');
-  const [results, setResults]             = useState<CompanyResult[]>([]);
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
-  const [showFilters, setShowFilters]     = useState(true);
+  const [filters, setFilters]               = useState<FilterValues>(EMPTY_FILTERS);
+  const [aiQuery, setAiQuery]               = useState('');
+  const [results, setResults]               = useState<CompanyResult[]>([]);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [showFilters, setShowFilters]       = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [selected, setSelected]           = useState<CompanyResult | null>(null);
   const [enrichMap, setEnrichMap]         = useState<Record<number, EnrichedContact>>({});
@@ -1348,7 +1390,7 @@ export function CompaniesSearch() {
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ── Filter panel ── */}
+      {/* ── Filter panel (desktop aside + mobile drawer) ── */}
       <FilterPanel
         filters={filters}
         onChange={updateFilter}
@@ -1357,6 +1399,8 @@ export function CompaniesSearch() {
         loading={loading}
         visible={showFilters}
         hasResults={results.length > 0}
+        mobileOpen={mobileFiltersOpen}
+        onMobileClose={() => setMobileFiltersOpen(false)}
       />
 
       {/* ── Main content ── */}
@@ -1415,10 +1459,18 @@ export function CompaniesSearch() {
                 </button>
               </form>
 
-              <div className="flex items-center gap-3 mt-3 text-xs text-gray-600">
+              <div className="flex items-center gap-3 mt-3 text-xs text-gray-600 flex-wrap">
+                {/* Mobile filter button */}
+                <button
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className="md:hidden flex items-center gap-1 hover:text-gray-300 transition-colors"
+                >
+                  ◧ Filters {Object.values(filters).filter(v => v.trim()).length > 0 ? `(${Object.values(filters).filter(v => v.trim()).length})` : ''}
+                </button>
+                {/* Desktop filter toggle */}
                 <button
                   onClick={() => setShowFilters(f => !f)}
-                  className="flex items-center gap-1 hover:text-gray-300 transition-colors"
+                  className="hidden md:flex items-center gap-1 hover:text-gray-300 transition-colors"
                 >
                   {showFilters ? '◧ Hide Filters' : '◩ Show Filters'}
                 </button>
@@ -1482,11 +1534,20 @@ export function CompaniesSearch() {
             <div className="flex-1 flex flex-col overflow-hidden">
 
               {/* Results toolbar */}
-              <div className="shrink-0 px-5 py-3 bg-gray-950 border-b border-gray-800
-                              flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="shrink-0 px-4 py-2.5 bg-gray-950 border-b border-gray-800
+                              flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Mobile filter button */}
+                  <button
+                    onClick={() => setMobileFiltersOpen(true)}
+                    className="md:hidden text-xs text-indigo-400 border border-indigo-900/60
+                               hover:border-indigo-700 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    ◧ Filters {Object.values(filters).filter(v => v.trim()).length > 0 ? `(${Object.values(filters).filter(v => v.trim()).length})` : ''}
+                  </button>
+                  {/* Desktop filter toggle */}
                   <button onClick={() => setShowFilters(f => !f)}
-                    className="text-xs text-gray-500 hover:text-white transition-colors">
+                    className="hidden md:block text-xs text-gray-500 hover:text-white transition-colors">
                     {showFilters ? '◧ Hide Filters' : '◩ Show Filters'}
                   </button>
                   <span className="text-gray-800 text-xs">|</span>
@@ -1502,49 +1563,50 @@ export function CompaniesSearch() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => setAutopilotOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs
                                bg-indigo-600/10 hover:bg-indigo-600/30 text-indigo-400
                                border border-indigo-900/60 hover:border-indigo-700
                                rounded-lg transition-colors"
                   >
-                    ⚡ Autopilot
+                    ⚡ <span className="hidden sm:inline">Autopilot</span>
                   </button>
                   <button
                     onClick={() => { setShowMyLists(true); setSelected(null); loadLists(); }}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs
                                text-gray-400 hover:text-white border border-gray-700
                                hover:border-gray-500 rounded-lg transition-colors"
                   >
-                    📁 My Lists {myLists.length > 0 && `(${myLists.length})`}
+                    📁 <span className="hidden sm:inline">My Lists {myLists.length > 0 && `(${myLists.length})`}</span>
+                    <span className="sm:hidden">{myLists.length > 0 ? myLists.length : ''}</span>
                   </button>
                   <button
                     onClick={enrichAll}
                     disabled={enrichingAll || loading}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs
                                bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300
                                border border-indigo-800/60 rounded-lg transition-colors
                                disabled:opacity-40"
                   >
-                    {enrichingAll ? '⟳ Enriching…' : '✨ Enrich All'}
+                    {enrichingAll ? '⟳' : '✨'} <span className="hidden sm:inline">{enrichingAll ? 'Enriching…' : 'Enrich All'}</span>
                   </button>
                   <button
                     onClick={exportCSV}
                     disabled={results.length === 0}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs
                                bg-gray-800 hover:bg-gray-700 text-gray-300
                                border border-gray-700 rounded-lg transition-colors
                                disabled:opacity-40"
                   >
-                    ⬇ Export CSV
+                    ⬇ Export
                   </button>
                   <button
                     onClick={() => { setResults([]); setAiQuery(''); setError(null); setSelected(null); setEnrichMap({}); }}
-                    className="text-xs text-gray-500 hover:text-gray-200 transition-colors ml-1"
+                    className="text-xs text-gray-500 hover:text-gray-200 transition-colors"
                   >
-                    ← New Search
+                    ← New
                   </button>
                 </div>
               </div>
@@ -1555,7 +1617,7 @@ export function CompaniesSearch() {
               )}
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[860px] text-sm">
                   <thead className="sticky top-0 z-10 bg-gray-950">
                     <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                       <th className="px-5 py-3 text-left font-medium">Company</th>
@@ -1630,9 +1692,9 @@ export function CompaniesSearch() {
               </div>
             </div>
 
-            {/* Company detail panel */}
+            {/* Company detail panel — fixed overlay on mobile, aside on desktop */}
             {selected && (
-              <aside className="w-80 shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-y-auto">
+              <aside className="fixed inset-0 z-30 md:static md:z-auto md:w-80 md:shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-y-auto">
                 <div className="p-4 border-b border-gray-800 flex items-start justify-between">
                   <div>
                     <div className="font-semibold text-white text-base">{selected.name}</div>
@@ -1871,7 +1933,7 @@ export function CompaniesSearch() {
 
       {/* ── Outreach toast ── */}
       {outreachToast && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
+        <div className="fixed bottom-20 md:bottom-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
                         border border-indigo-800 rounded-lg text-xs text-indigo-300 shadow-xl">
           {outreachToast}
         </div>
@@ -1879,7 +1941,7 @@ export function CompaniesSearch() {
 
       {/* ── Copy toast ── */}
       {copied && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
                         border border-gray-700 rounded-lg text-xs text-emerald-400 shadow-xl">
           ✓ Copied to clipboard
         </div>
@@ -1887,7 +1949,7 @@ export function CompaniesSearch() {
 
       {/* ── List save toast ── */}
       {listToast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
+        <div className={`fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-800
                          border rounded-lg text-xs shadow-xl ${
                            listToast.startsWith('✓')
                              ? 'border-emerald-800 text-emerald-400'

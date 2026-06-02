@@ -43,20 +43,19 @@ export function TopNav() {
     <header className="h-12 bg-gray-950 border-b border-gray-800 flex items-center shrink-0">
 
       {/* Logo */}
-      <div className="flex items-center px-4 h-full border-r border-gray-800 shrink-0">
-        <img src={urapLogo} alt="URAP" className="h-8 w-auto" />
+      <div className="flex items-center px-3 md:px-4 h-full border-r border-gray-800 shrink-0">
+        <img src={urapLogo} alt="URAP" className="h-7 md:h-8 w-auto" />
       </div>
 
-      {/* Tabs — first 3 mirror Seamless.AI search modes; last 2 are URAP-specific */}
-      <nav className="flex h-full ml-1 overflow-x-auto">
-        {/* Visual separator before Engagement */}
+      {/* Tabs — scrollable on mobile */}
+      <nav className="flex h-full ml-1 overflow-x-auto scrollbar-none">
         {NAV_TABS.flatMap((tab, i) => {
           const active = isActive(tab.routes);
           const btn = (
             <button
               key={tab.route}
               onClick={() => navigate(tab.route)}
-              className={`relative px-4 h-full text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`relative px-3 md:px-4 h-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${
                 active ? 'text-white' : 'text-gray-400 hover:text-gray-200'
               }`}
             >

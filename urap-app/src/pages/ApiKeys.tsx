@@ -79,9 +79,9 @@ export function ApiKeys() {
   }
 
   return (
-    <div className="flex gap-4 h-full p-4 overflow-hidden">
+    <div className="flex flex-col md:flex-row gap-4 p-4 md:h-full overflow-auto md:overflow-hidden">
       {/* Generate panel */}
-      <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+      <div className="w-full md:w-80 md:flex-shrink-0 flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">API</h2>
           <p className="text-xs text-gray-500 mt-1">

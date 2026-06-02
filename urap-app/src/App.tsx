@@ -16,6 +16,7 @@ import { CompaniesSearch } from './pages/CompaniesSearch.js';
 import { Integrations } from './pages/Integrations.js';
 import { ApiKeys } from './pages/ApiKeys.js';
 import { BulkEnrich } from './pages/BulkEnrich.js';
+import { MobileBottomNav } from './components/layout/MobileBottomNav.js';
 
 type SelectedLead = {
   name: string;
@@ -35,7 +36,7 @@ export default function App() {
         <TopNav />
         <div className="flex flex-1 min-h-0">
           <Sidebar />
-          <main className="flex-1 overflow-auto bg-gray-950">
+          <main className="flex-1 overflow-auto bg-gray-950 pb-16 md:pb-0">
             <Routes>
               <Route path="/prospector" element={<Prospector onSelectLead={setSelectedLead} />} />
               <Route path="/companies" element={<CompaniesSearch />} />
@@ -68,6 +69,7 @@ export default function App() {
           </main>
         </div>
       </div>
+      <MobileBottomNav />
     </BrowserRouter>
   );
 }

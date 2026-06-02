@@ -73,9 +73,11 @@ interface FilterPanelProps {
   onSearch:       () => void;
   loading:        boolean;
   visible:        boolean;
+  mobileOpen:     boolean;
+  onMobileClose:  () => void;
 }
 
-function FilterPanel({ filters, onChange, onSearch, loading, visible }: FilterPanelProps) {
+function FilterPanel({ filters, onChange, onSearch, loading, visible, mobileOpen, onMobileClose }: FilterPanelProps) {
   const [expanded, setExpanded] = useState<Set<FilterId>>(new Set(['domain', 'titles']));
 
   function toggle(id: FilterId) {
@@ -84,10 +86,8 @@ function FilterPanel({ filters, onChange, onSearch, loading, visible }: FilterPa
 
   const activeCount = Object.values(filters).filter(v => v.trim()).length;
 
-  if (!visible) return null;
-
-  return (
-    <aside className="w-[272px] shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col h-full">
+  const panelContent = (
+    <>
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
@@ -99,13 +99,22 @@ function FilterPanel({ filters, onChange, onSearch, loading, visible }: FilterPa
           )}
         </div>
         <div className="flex items-center gap-0.5">
-          {[['📁','Save filter set'],['🔖','Saved searches'],['🕐','Search history']].map(([icon, title]) => (
-            <button key={title} title={title}
-              className="w-7 h-7 flex items-center justify-center text-gray-500
-                         hover:text-gray-300 hover:bg-gray-800 rounded transition-colors text-sm">
-              {icon}
-            </button>
-          ))}
+          <div className="hidden md:flex items-center gap-0.5">
+            {[['📁','Save filter set'],['🔖','Saved searches'],['🕐','Search history']].map(([icon, title]) => (
+              <button key={title} title={title}
+                className="w-7 h-7 flex items-center justify-center text-gray-500
+                           hover:text-gray-300 hover:bg-gray-800 rounded transition-colors text-sm">
+                {icon}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={onMobileClose}
+            className="md:hidden w-8 h-8 flex items-center justify-center text-gray-400
+                       hover:text-white text-xl leading-none"
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -162,7 +171,7 @@ function FilterPanel({ filters, onChange, onSearch, loading, visible }: FilterPa
       {/* Search CTA */}
       <div className="p-3 border-t border-gray-800 shrink-0">
         <button
-          onClick={onSearch}
+          onClick={() => { onSearch(); if (mobileOpen) onMobileClose(); }}
           disabled={loading}
           className="w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-white text-sm
                      font-medium rounded-lg transition-colors disabled:opacity-50"
@@ -170,19 +179,52 @@ function FilterPanel({ filters, onChange, onSearch, loading, visible }: FilterPa
           {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-50 w-[300px] max-w-[85vw]',
+          'bg-gray-900 border-r border-gray-800 flex flex-col',
+          'transition-transform duration-200',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:hidden',
+        ].join(' ')}
+      >
+        {panelContent}
+      </aside>
+
+      {/* Desktop aside */}
+      {visible && (
+        <aside className="hidden md:flex w-[272px] shrink-0 bg-gray-900 border-r border-gray-800 flex-col h-full">
+          {panelContent}
+        </aside>
+      )}
+    </>
   );
 }
 
 // ── Prospector ────────────────────────────────────────────────────────────────
 
 export function Prospector({ onSelectLead }: ProspectorProps) {
-  const [filters, setFilters]         = useState<FilterValues>(EMPTY_FILTERS);
-  const [aiQuery, setAiQuery]         = useState('');
-  const [results, setResults]         = useState<ContactResult[]>([]);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(true);
+  const [filters, setFilters]               = useState<FilterValues>(EMPTY_FILTERS);
+  const [aiQuery, setAiQuery]               = useState('');
+  const [results, setResults]               = useState<ContactResult[]>([]);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [showFilters, setShowFilters]       = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   function updateFilter(id: FilterId, val: string) {
@@ -243,13 +285,15 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ── Left filter panel ── */}
+      {/* ── Filter panel (desktop aside + mobile drawer) ── */}
       <FilterPanel
         filters={filters}
         onChange={updateFilter}
         onSearch={handleFilterSearch}
         loading={loading}
         visible={showFilters}
+        mobileOpen={mobileFiltersOpen}
+        onMobileClose={() => setMobileFiltersOpen(false)}
       />
 
       {/* ── Main content ── */}
@@ -315,10 +359,18 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
               </form>
 
               {/* Sub-actions row */}
-              <div className="flex items-center gap-3 mt-3 text-xs text-gray-600">
+              <div className="flex items-center gap-3 mt-3 text-xs text-gray-600 flex-wrap">
+                {/* Mobile filter button */}
+                <button
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className="md:hidden flex items-center gap-1 hover:text-gray-300 transition-colors"
+                >
+                  ◧ Filters {Object.values(filters).filter(v => v.trim()).length > 0 ? `(${Object.values(filters).filter(v => v.trim()).length})` : ''}
+                </button>
+                {/* Desktop filter toggle */}
                 <button
                   onClick={() => setShowFilters(f => !f)}
-                  className="flex items-center gap-1 hover:text-gray-300 transition-colors"
+                  className="hidden md:flex items-center gap-1 hover:text-gray-300 transition-colors"
                 >
                   {showFilters ? '◧ Hide Filters' : '◩ Show Filters'}
                 </button>
@@ -349,12 +401,21 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
           /* ── Results grid ───────────────────────────────────────────────── */
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Sticky toolbar */}
-            <div className="shrink-0 px-5 py-3 bg-gray-950 border-b border-gray-800
-                            flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="shrink-0 px-4 py-2.5 bg-gray-950 border-b border-gray-800
+                            flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Mobile filter button */}
+                <button
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className="md:hidden text-xs text-indigo-400 border border-indigo-900/60
+                             hover:border-indigo-700 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  ◧ Filters {Object.values(filters).filter(v => v.trim()).length > 0 ? `(${Object.values(filters).filter(v => v.trim()).length})` : ''}
+                </button>
+                {/* Desktop filter toggle */}
                 <button
                   onClick={() => setShowFilters(f => !f)}
-                  className="text-xs text-gray-500 hover:text-white transition-colors"
+                  className="hidden md:block text-xs text-gray-500 hover:text-white transition-colors"
                 >
                   {showFilters ? '◧ Hide Filters' : '◩ Show Filters'}
                 </button>
@@ -379,7 +440,7 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
             )}
 
             <div className="flex-1 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead className="sticky top-0 z-10 bg-gray-950">
                   <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                     <th className="px-5 py-3 text-left font-medium">Name</th>

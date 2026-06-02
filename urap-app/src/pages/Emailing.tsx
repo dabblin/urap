@@ -96,9 +96,9 @@ export function Emailing({ onSelectLead: _onSelectLead }: Props) {
   }
 
   return (
-    <div className="flex gap-4 h-full p-4">
+    <div className="flex flex-col md:flex-row gap-4 p-4 md:h-full overflow-auto md:overflow-hidden">
       {/* Compose panel */}
-      <div className="w-96 flex-shrink-0 flex flex-col gap-3">
+      <div className="w-full md:w-96 md:flex-shrink-0 flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Compose</h2>
         <input
           className="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"

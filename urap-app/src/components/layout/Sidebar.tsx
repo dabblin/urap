@@ -8,7 +8,7 @@ const PILLARS: Pillar[] = ['data', 'engagement', 'automation'];
 export function Sidebar() {
   return (
     <aside
-      className="w-[52px] bg-gray-900 border-r border-gray-800 flex flex-col h-full
+      className="hidden md:flex w-[52px] bg-gray-900 border-r border-gray-800 flex-col h-full
                  py-2 shrink-0 overflow-y-auto overflow-x-hidden"
     >
       {PILLARS.map((pillar, idx) => {
