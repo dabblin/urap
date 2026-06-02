@@ -26,7 +26,7 @@ type SelectedLead = {
 } | null;
 
 export default function App() {
-  const [selectedLead, setSelectedLead] = useState<SelectedLead>(null);
+  const [_selectedLead, setSelectedLead] = useState<SelectedLead>(null);
   const tools = getAllTools();
 
   return (

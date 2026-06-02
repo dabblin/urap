@@ -37,7 +37,7 @@ interface Props {
   onSelectLead?: (lead: ContactResult | null) => void;
 }
 
-export function Emailing({ onSelectLead }: Props) {
+export function Emailing({ onSelectLead: _onSelectLead }: Props) {
   const [form, setForm] = useState<EmailForm>(EMPTY_FORM);
   const [logs, setLogs] = useState<SendLog[]>([]);
   const [loading, setLoading] = useState(false);
