@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ENGINE, TENANT } from '../lib/config.js';
 import type { ContactResult } from '../types.js';
 
+const API_KEY = '';
+
 // ── Env ───────────────────────────────────────────────────────────────────────
 
 const USER_NAME  = (import.meta as unknown as { env: Record<string, string> }).env
@@ -223,6 +225,36 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
   const [showFilters, setShowFilters]       = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [saveListName, setSaveListName]     = useState('');
+  const [savingList, setSavingList]         = useState(false);
+  const [saveModal, setSaveModal]           = useState(false);
+  const [saveSuccess, setSaveSuccess]       = useState<string | null>(null);
+
+  async function handleSaveToList() {
+    if (!saveListName.trim() || results.length === 0) return;
+    setSavingList(true);
+    try {
+      const contacts = results.map(c => ({
+        lead_id: c.leadId, name: c.name, title: c.title, company: c.company,
+        email: c.email, phone: c.phone,
+        email_verified: c.emailVerified, enrichment_source: c.enrichmentSource,
+      }));
+      const res = await fetch(`${ENGINE}/campaigns/lists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-tenant-id': TENANT },
+        body: JSON.stringify({ name: saveListName.trim(), contacts }),
+      });
+      const data = await res.json();
+      setSaveSuccess(`"${saveListName.trim()}" saved — ${data.count} contacts`);
+      setSaveListName('');
+      setSaveModal(false);
+    } catch (err) {
+      setSaveSuccess(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSavingList(false);
+      setTimeout(() => setSaveSuccess(null), 4000);
+    }
+  }
 
   function updateFilter(id: FilterId, val: string) {
     setFilters(f => ({ ...f, [id]: val }));
@@ -421,13 +453,59 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
                   {loading ? 'Searching…' : `${results.length} contact${results.length !== 1 ? 's' : ''} found`}
                 </span>
               </div>
-              <button
-                onClick={() => { setResults([]); setAiQuery(''); setError(null); }}
-                className="text-xs text-gray-500 hover:text-gray-200 transition-colors"
-              >
-                ← New Search
-              </button>
+              <div className="flex items-center gap-2">
+                {saveSuccess && (
+                  <span className="text-xs text-green-400">{saveSuccess}</span>
+                )}
+                {results.length > 0 && (
+                  <button
+                    onClick={() => setSaveModal(true)}
+                    className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+                  >
+                    💾 Save to List
+                  </button>
+                )}
+                <button
+                  onClick={() => { setResults([]); setAiQuery(''); setError(null); }}
+                  className="text-xs text-gray-500 hover:text-gray-200 transition-colors"
+                >
+                  ← New Search
+                </button>
+              </div>
             </div>
+
+            {/* Save to List modal */}
+            {saveModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-80 shadow-2xl">
+                  <h3 className="text-white font-semibold mb-1">Save to List</h3>
+                  <p className="text-gray-500 text-xs mb-4">{results.length} contacts will be saved.</p>
+                  <input
+                    autoFocus
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 mb-4"
+                    placeholder="List name…"
+                    value={saveListName}
+                    onChange={e => setSaveListName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveToList()}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveToList}
+                      disabled={savingList || !saveListName.trim()}
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+                    >
+                      {savingList ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => { setSaveModal(false); setSaveListName(''); }}
+                      className="px-4 py-2 text-sm text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="mx-5 mt-4 p-3 bg-red-900/30 border border-red-700/60 rounded-lg

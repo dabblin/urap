@@ -273,6 +273,46 @@ class SaveListRequest(BaseModel):
     items: list[SaveListItem]
 
 
+# ── Sprint 9A — Campaign Lists + Campaigns ────────────────────────────────────
+
+class CampaignListContact(BaseModel):
+    lead_id:           Optional[str] = None
+    name:              str = ""
+    title:             str = ""
+    company:           str = ""
+    email:             str
+    phone:             Optional[str] = None
+    email_verified:    bool = False
+    enrichment_source: str = ""
+
+
+class CampaignListSaveRequest(BaseModel):
+    name:     str
+    contacts: list[CampaignListContact]
+
+
+class CampaignCreateRequest(BaseModel):
+    name:             str
+    list_id:          str
+    from_email:       str
+    from_name:        str = ""
+    subject_template: str
+    body_template:    str
+    ai_personalize:   bool = False
+
+
+class CampaignPageCreateRequest(BaseModel):
+    slug:         str
+    headline:     str
+    subheadline:  str = ""
+    cta_text:     str = "Get Started"
+    brand_color:  str = "#6366f1"
+    form_fields:  list[str] = ["name", "email", "phone"]
+    logo_url:     Optional[str] = None
+    company_name: Optional[str] = None
+    campaign_id:  Optional[str] = None
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -1105,6 +1145,209 @@ async def race_run(body: RaceDispatchRequest, x_tenant_id: str = Header(...)):
 async def race_results(x_tenant_id: str = Header(...), limit: int = 20):
     """Return recent CPL auction results + aggregate stats for this tenant."""
     return _race.get_results(tenant_id=x_tenant_id, limit=min(limit, 50))
+
+
+# ── Sprint 9B — Campaign Landing Pages ───────────────────────────────────────
+
+@app.post("/campaign-pages", dependencies=[Depends(require_api_key)])
+async def create_campaign_page(body: CampaignPageCreateRequest, x_tenant_id: str = Header(...)):
+    """Create a new campaign landing page config. The slug becomes the URL: /c/{slug}"""
+    from supabase import create_client
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    page_id = str(_uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    slug = body.slug.lower().strip().replace(" ", "-")
+    row = {
+        "id": page_id, "tenant_id": x_tenant_id,
+        "slug": slug, "headline": body.headline,
+        "subheadline": body.subheadline, "cta_text": body.cta_text,
+        "brand_color": body.brand_color, "form_fields": body.form_fields,
+        "logo_url": body.logo_url, "company_name": body.company_name,
+        "campaign_id": body.campaign_id, "created_at": now,
+    }
+    db.table("urap_campaign_pages").insert(row).execute()
+    return row
+
+
+@app.get("/campaign-pages", dependencies=[Depends(require_api_key)])
+async def list_campaign_pages(x_tenant_id: str = Header(...)):
+    """Return all landing pages for this tenant."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    resp = (
+        db.table("urap_campaign_pages")
+        .select("id, slug, headline, subheadline, cta_text, brand_color, form_fields, company_name, campaign_id, created_at")
+        .eq("tenant_id", x_tenant_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return {"pages": resp.data or [], "count": len(resp.data or [])}
+
+
+@app.get("/p/{slug}")
+async def get_campaign_page_public(slug: str, x_tenant_id: str = Header(default="dev-tenant")):
+    """Public — fetched by the dabblin-landing-pages Next.js app at render time."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    resp = (
+        db.table("urap_campaign_pages")
+        .select("*")
+        .eq("slug", slug)
+        .limit(1)
+        .execute()
+    )
+    if not resp.data:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="page_not_found")
+    return {"page": resp.data[0]}
+
+
+@app.delete("/campaign-pages/{page_id}", dependencies=[Depends(require_api_key)])
+async def delete_campaign_page(page_id: str, x_tenant_id: str = Header(...)):
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    db.table("urap_campaign_pages").delete().eq("id", page_id).eq("tenant_id", x_tenant_id).execute()
+    return {"deleted": True, "page_id": page_id}
+
+
+# ── Sprint 9A — Campaign Lists (contact-based) ───────────────────────────────
+
+@app.post("/campaigns/lists", dependencies=[Depends(require_api_key)])
+async def create_campaign_list(body: CampaignListSaveRequest, x_tenant_id: str = Header(...)):
+    """Save a named contact list from Prospector results."""
+    from supabase import create_client
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    list_id = str(_uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    db.table("urap_campaign_lists").insert({
+        "id": list_id, "tenant_id": x_tenant_id,
+        "name": body.name.strip(), "contact_count": len(body.contacts), "created_at": now,
+    }).execute()
+    rows = [
+        {
+            "id": str(_uuid.uuid4()), "list_id": list_id, "tenant_id": x_tenant_id,
+            "lead_id": c.lead_id or str(_uuid.uuid4()),
+            "name": c.name, "title": c.title, "company": c.company,
+            "email": c.email, "phone": c.phone or "",
+            "email_verified": c.email_verified, "enrichment_source": c.enrichment_source,
+        }
+        for c in body.contacts if c.email
+    ]
+    for i in range(0, len(rows), 50):
+        db.table("urap_campaign_list_contacts").insert(rows[i:i+50]).execute()
+    return {"list_id": list_id, "name": body.name.strip(), "count": len(rows), "created_at": now}
+
+
+@app.get("/campaigns/lists", dependencies=[Depends(require_api_key)])
+async def get_campaign_lists(x_tenant_id: str = Header(...)):
+    """Return all contact lists for this tenant."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    resp = (
+        db.table("urap_campaign_lists")
+        .select("id, name, contact_count, created_at")
+        .eq("tenant_id", x_tenant_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return {"lists": resp.data or [], "count": len(resp.data or [])}
+
+
+@app.delete("/campaigns/lists/{list_id}", dependencies=[Depends(require_api_key)])
+async def delete_campaign_list(list_id: str, x_tenant_id: str = Header(...)):
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    db.table("urap_campaign_lists").delete().eq("id", list_id).eq("tenant_id", x_tenant_id).execute()
+    return {"deleted": True, "list_id": list_id}
+
+
+# ── Sprint 9A — Campaigns ─────────────────────────────────────────────────────
+
+@app.post("/campaigns", dependencies=[Depends(require_api_key)])
+async def create_campaign(body: CampaignCreateRequest, x_tenant_id: str = Header(...)):
+    """Create a new campaign (status: draft)."""
+    from supabase import create_client
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    campaign_id = str(_uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "id": campaign_id, "tenant_id": x_tenant_id,
+        "name": body.name.strip(), "list_id": body.list_id,
+        "from_email": body.from_email, "from_name": body.from_name,
+        "subject_template": body.subject_template, "body_template": body.body_template,
+        "ai_personalize": body.ai_personalize,
+        "status": "draft", "sent_count": 0, "failed_count": 0, "created_at": now,
+    }
+    db.table("urap_campaigns").insert(row).execute()
+    return row
+
+
+@app.get("/campaigns", dependencies=[Depends(require_api_key)])
+async def list_campaigns(x_tenant_id: str = Header(...)):
+    """Return all campaigns for this tenant."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    resp = (
+        db.table("urap_campaigns")
+        .select("id, name, list_id, from_email, from_name, subject_template, ai_personalize, status, sent_count, failed_count, created_at")
+        .eq("tenant_id", x_tenant_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return {"campaigns": resp.data or [], "count": len(resp.data or [])}
+
+
+@app.post("/campaigns/{campaign_id}/dispatch", dependencies=[Depends(require_api_key)])
+async def dispatch_campaign(campaign_id: str, x_tenant_id: str = Header(...)):
+    """Personalize + batch-send a campaign to its list. Returns {sent, failed, skipped}."""
+    from supabase import create_client
+    from modules.m2_outreach.campaign_dispatcher import dispatch
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+
+    # fetch campaign
+    camp_resp = db.table("urap_campaigns").select("*").eq("id", campaign_id).eq("tenant_id", x_tenant_id).execute()
+    if not camp_resp.data:
+        return {"error": "campaign_not_found"}
+    campaign = camp_resp.data[0]
+
+    # mark as sending
+    db.table("urap_campaigns").update({"status": "sending"}).eq("id", campaign_id).execute()
+
+    # fetch contacts
+    contacts_resp = (
+        db.table("urap_campaign_list_contacts")
+        .select("lead_id, name, title, company, email, phone, email_verified, enrichment_source")
+        .eq("list_id", campaign["list_id"])
+        .eq("tenant_id", x_tenant_id)
+        .execute()
+    )
+    contacts = contacts_resp.data or []
+
+    result = await dispatch(
+        campaign=campaign, contacts=contacts,
+        tenant_id=x_tenant_id, email_svc=_email_svc, db=db,
+    )
+    return result
+
+
+@app.get("/campaigns/{campaign_id}/stats", dependencies=[Depends(require_api_key)])
+async def campaign_stats(campaign_id: str, x_tenant_id: str = Header(...)):
+    """Return send stats for a campaign."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    camp_resp = db.table("urap_campaigns").select("id, name, status, sent_count, failed_count").eq("id", campaign_id).eq("tenant_id", x_tenant_id).execute()
+    if not camp_resp.data:
+        return {"error": "campaign_not_found"}
+    camp = camp_resp.data[0]
+    sends_resp = db.table("urap_campaign_sends").select("status, provider, error").eq("campaign_id", campaign_id).execute()
+    sends = sends_resp.data or []
+    return {**camp, "total_sends": len(sends), "sends": sends[:50]}
 
 
 # ── Background: hourly sequence tick ─────────────────────────────────────────

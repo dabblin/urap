@@ -33,6 +33,12 @@ registerTool({ id: 'lead-router', label: 'Lead Router', pillar: 'automation', ic
 // Sprint 8 — BizReach Money Tab integration
 registerTool({ id: 'revenue', label: 'Revenue', pillar: 'automation', icon: '💵', route: '/revenue', sprint: 8 });
 
+// Sprint 9A — Batch Email Campaigns
+registerTool({ id: 'campaigns', label: 'Campaigns', pillar: 'engagement', icon: '📨', route: '/campaigns', sprint: 9 });
+
+// Sprint 9B — Campaign Landing Pages
+registerTool({ id: 'landing-pages', label: 'Landing Pages', pillar: 'engagement', icon: '🌐', route: '/landing-pages', sprint: 9 });
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

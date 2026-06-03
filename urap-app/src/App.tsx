@@ -18,6 +18,8 @@ import { ApiKeys } from './pages/ApiKeys.js';
 import { BulkEnrich } from './pages/BulkEnrich.js';
 import { LeadRouter } from './pages/LeadRouter.js';
 import { Revenue } from './pages/Revenue.js';
+import { Campaigns } from './pages/Campaigns.js';
+import { LandingPages } from './pages/LandingPages.js';
 import { MobileBottomNav } from './components/layout/MobileBottomNav.js';
 
 type SelectedLead = {
@@ -55,9 +57,11 @@ export default function App() {
               <Route path="/bulk-credits" element={<BulkEnrich />} />
               <Route path="/lead-router" element={<LeadRouter />} />
               <Route path="/revenue" element={<Revenue />} />
+              <Route path="/campaigns" element={<Campaigns />} />
+              <Route path="/landing-pages" element={<LandingPages />} />
               <Route path="/" element={<Navigate to="/prospector" replace />} />
               {tools
-                .filter(t => !['prospector', 'company-search', 'emailing', 'buyer-intent', 'job-changes', 'connect', 'warp-mode', 'autopilot', 'reply-intel', 'calling', 'integrations', 'api-keys', 'bulk-credits', 'lead-router', 'revenue'].includes(t.id))
+                .filter(t => !['prospector', 'company-search', 'emailing', 'buyer-intent', 'job-changes', 'connect', 'warp-mode', 'autopilot', 'reply-intel', 'calling', 'integrations', 'api-keys', 'bulk-credits', 'lead-router', 'revenue', 'campaigns', 'landing-pages'].includes(t.id))
                 .map(tool => (
                   <Route
                     key={tool.id}
