@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ENGINE, TENANT } from '../lib/config.js';
 
 const API_KEY = '';
@@ -78,6 +79,7 @@ function StatusBadge({ status }: { status: Campaign['status'] }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function Campaigns() {
+  const location = useLocation();
   const [lists, setLists]               = useState<CampaignList[]>([]);
   const [campaigns, setCampaigns]       = useState<Campaign[]>([]);
   const [selected, setSelected]         = useState<Campaign | null>(null);
@@ -107,6 +109,16 @@ export function Campaigns() {
     fetchLists();
     fetchCampaigns();
   }, [fetchLists, fetchCampaigns]);
+
+  useEffect(() => {
+    if (location.state && (location.state as any).listId) {
+      setForm(f => ({ ...f, list_id: (location.state as any).listId }));
+      setView('builder');
+      setSelected(null);
+      setResult(null);
+      setError(null);
+    }
+  }, [location.state]);
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm(f => ({ ...f, [key]: val }));

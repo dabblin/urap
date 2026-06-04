@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ENGINE, TENANT } from '../lib/config.js';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
@@ -814,12 +815,19 @@ interface SaveListModalProps {
   resultCount:  number;
   emailCount:   number;
   saving:       boolean;
-  onSave:       (name: string) => void;
+  onSave:       (name: string, filterMode: 'all' | 'emails' | 'no_emails') => void;
   onCancel:     () => void;
 }
 
 function SaveListModal({ resultCount, emailCount, saving, onSave, onCancel }: SaveListModalProps) {
   const [name, setName] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'emails' | 'no_emails'>('all');
+
+  const countToSave = filterMode === 'all' 
+    ? resultCount 
+    : filterMode === 'emails' 
+      ? emailCount 
+      : (resultCount - emailCount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -838,16 +846,33 @@ function SaveListModal({ resultCount, emailCount, saving, onSave, onCancel }: Sa
               placeholder="Atlanta Barbershops, Q3 Outreach…"
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onSave(name.trim()); }}
+              onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onSave(name.trim(), filterMode); }}
               className="w-full bg-gray-800 text-white text-sm px-3 py-2.5 rounded-lg
                          border border-gray-700 focus:border-indigo-500 outline-none
                          placeholder-gray-600 transition-colors"
             />
           </div>
 
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5">Filter Contacts</label>
+            <select
+              value={filterMode}
+              onChange={e => setFilterMode(e.target.value as any)}
+              className="w-full bg-gray-800 text-white text-sm px-3 py-2.5 rounded-lg
+                         border border-gray-700 focus:border-indigo-500 outline-none
+                         transition-colors cursor-pointer"
+            >
+              <option value="all">All contacts ({resultCount})</option>
+              <option value="emails">Only contacts with emails ({emailCount})</option>
+              <option value="no_emails">Only contacts without emails ({resultCount - emailCount})</option>
+            </select>
+          </div>
+
           <div className="text-xs text-gray-500 space-y-0.5">
-            <div>{resultCount} compan{resultCount !== 1 ? 'ies' : 'y'} will be saved</div>
-            {emailCount > 0 && (
+            <div>
+              {countToSave} compan{countToSave !== 1 ? 'ies' : 'y'} will be saved
+            </div>
+            {filterMode === 'all' && emailCount > 0 && (
               <div className="text-emerald-600">
                 {emailCount} with discovered email{emailCount !== 1 ? 's' : ''}
               </div>
@@ -864,8 +889,8 @@ function SaveListModal({ resultCount, emailCount, saving, onSave, onCancel }: Sa
             Cancel
           </button>
           <button
-            onClick={() => { if (name.trim()) onSave(name.trim()); }}
-            disabled={!name.trim() || saving}
+            onClick={() => { if (name.trim()) onSave(name.trim(), filterMode); }}
+            disabled={!name.trim() || saving || countToSave === 0}
             className="px-4 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white
                        font-medium rounded-lg transition-colors disabled:opacity-40"
           >
@@ -972,15 +997,16 @@ function MyListsPanel({ lists, loading, onDelete, onViewItems, onClose }: MyList
 // ── ListItemsPanel ────────────────────────────────────────────────────────────
 
 interface ListItemsPanelProps {
-  list:     SavedList;
-  items:    ListItem[];
-  loading:  boolean;
-  onBack:   () => void;
-  onDelete: (id: string) => void;
-  onCopy:   (text: string) => void;
+  list:             SavedList;
+  items:            ListItem[];
+  loading:          boolean;
+  onBack:           () => void;
+  onDelete:         (id: string) => void;
+  onCopy:           (text: string) => void;
+  onCreateCampaign?: (id: string) => void;
 }
 
-function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy }: ListItemsPanelProps) {
+function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy, onCreateCampaign }: ListItemsPanelProps) {
   function exportCSV() {
     const cols = ['Company', 'Domain', 'Phone', 'Email', 'Contact Name', 'Title', 'Industry', 'Location', 'Source'];
     const rows = items.map(it => [
@@ -1012,6 +1038,15 @@ function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy }: List
           <span className="text-[10px] text-gray-500">{items.length} companies</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => onCreateCampaign?.(list.id)}
+            disabled={items.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs
+                       bg-indigo-600 hover:bg-indigo-500 text-white
+                       border border-indigo-700 rounded-lg transition-colors disabled:opacity-40"
+          >
+            📢 Create Campaign
+          </button>
           <button
             onClick={exportCSV}
             disabled={items.length === 0}
@@ -1103,6 +1138,7 @@ function ListItemsPanel({ list, items, loading, onBack, onDelete, onCopy }: List
 // ── CompaniesSearch ───────────────────────────────────────────────────────────
 
 export function CompaniesSearch() {
+  const navigate = useNavigate();
   const [filters, setFilters]               = useState<FilterValues>(EMPTY_FILTERS);
   const [aiQuery, setAiQuery]               = useState('');
   const [results, setResults]               = useState<CompanyResult[]>([]);
@@ -1304,26 +1340,42 @@ export function CompaniesSearch() {
 
   useEffect(() => { loadLists(); }, [loadLists]);
 
-  async function handleSaveList(name: string) {
+  async function handleSaveList(name: string, filterMode: 'all' | 'emails' | 'no_emails') {
     setListSaving(true);
     try {
-      const items = results.map((c, i) => {
-        const enr = enrichMap[i];
-        return {
-          name:          c.name,
-          domain:        c.domain,
-          website:       c.website,
-          phone:         c.phone,
-          email:         enr?.status === 'found' ? enr.email : '',
-          contact_name:  enr?.status === 'found'
-            ? `${enr.first_name} ${enr.last_name}`.trim()
-            : '',
-          contact_title: enr?.status === 'found' ? enr.title : '',
-          industry:      c.industry,
-          location:      c.location,
-          source:        c.source,
-        };
-      });
+      const items = results
+        .map((c, i) => {
+          const enr = enrichMap[i];
+          const hasEmail = enr?.status === 'found' && enr.email;
+          return {
+            name:          c.name,
+            domain:        c.domain,
+            website:       c.website,
+            phone:         c.phone,
+            email:         hasEmail ? enr.email : '',
+            contact_name:  hasEmail ? `${enr.first_name} ${enr.last_name}`.trim() : '',
+            contact_title: hasEmail ? enr.title : '',
+            industry:      c.industry,
+            location:      c.location,
+            source:        c.source,
+          };
+        })
+        .filter(item => {
+          if (filterMode === 'emails') {
+            return item.email !== '';
+          }
+          if (filterMode === 'no_emails') {
+            return item.email === '';
+          }
+          return true; // 'all'
+        });
+
+      if (items.length === 0) {
+        setListModalOpen(false);
+        setListToast('⚠ No companies matched the filter.');
+        setTimeout(() => setListToast(null), 3000);
+        return;
+      }
 
       const resp = await fetch(`${ENGINE}/companies/list/save`, {
         method:  'POST',
@@ -1521,6 +1573,7 @@ export function CompaniesSearch() {
             onBack={() => setExpandedList(null)}
             onDelete={id => { handleDeleteList(id); setShowMyLists(false); }}
             onCopy={copyToClipboard}
+            onCreateCampaign={id => navigate('/campaigns', { state: { listId: 'company:' + id } })}
           />
 
         ) : (

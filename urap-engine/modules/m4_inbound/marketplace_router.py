@@ -2,6 +2,7 @@
 import os
 import uuid
 import logging
+import asyncio
 import httpx
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -160,37 +161,16 @@ class MarketplaceRouter:
         except Exception as exc:
             return {"success": False, "status_code": 0, "error": str(exc)}
 
-    async def dispatch(
+    async def _dispatch_target_leads(
         self,
         tenant_id: str,
-        marketplace_id: str,
+        target: dict,
         leads: list[dict],
-        ping_post: bool = False,
-    ) -> DispatchResult:
-        """
-        Route selected leads to a configured marketplace webhook.
-        ping_post=True sends to ALL configured marketplaces simultaneously.
-        """
-        configs = self.get_marketplace_configs(tenant_id)
-
-        if ping_post:
-            targets = [c for c in configs if c.get("configured")]
-        else:
-            targets = [c for c in configs if c["id"] == marketplace_id and c.get("configured")]
-
-        if not targets:
-            return DispatchResult(
-                session_id="", marketplace_id=marketplace_id,
-                marketplace_name=marketplace_id, leads_routed=0,
-                estimated_earnings=0.0, failed=0,
-                error="No configured marketplace found. Add a webhook URL in Integrations → Marketplaces.",
-            )
-
-        target = targets[0]
+    ) -> tuple[int, int, float, str, str, str]:
+        """Dispatch a set of leads to a single target with a 3-attempt retry loop."""
         session_id = str(uuid.uuid4())
         routed = 0
         failed = 0
-
         req_headers = {"Content-Type": "application/json"}
         if target.get("api_key"):
             req_headers["Authorization"] = f"Bearer {target['api_key']}"
@@ -198,16 +178,35 @@ class MarketplaceRouter:
         async with httpx.AsyncClient(timeout=15) as client:
             for lead in leads:
                 payload = self._build_payload(lead)
-                try:
-                    resp = await client.post(target["webhook_url"], json=payload, headers=req_headers)
-                    if 200 <= resp.status_code < 300:
-                        routed += 1
-                    else:
-                        failed += 1
-                        logger.warning("[marketplace_router] dispatch %s → HTTP %s", target["id"], resp.status_code)
-                except Exception as exc:
+                success = False
+                max_attempts = 3
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        resp = await client.post(target["webhook_url"], json=payload, headers=req_headers)
+                        if 200 <= resp.status_code < 300:
+                            success = True
+                            break
+                        else:
+                            logger.warning(
+                                "[marketplace_router] dispatch %s → HTTP %s (attempt %d/%d)",
+                                target["id"], resp.status_code, attempt, max_attempts
+                            )
+                    except Exception as exc:
+                        logger.error(
+                            "[marketplace_router] dispatch %s error: %s (attempt %d/%d)",
+                            target["id"], exc, attempt, max_attempts
+                        )
+                    if attempt < max_attempts:
+                        await asyncio.sleep(0.5)
+
+                if success:
+                    routed += 1
+                else:
                     failed += 1
-                    logger.error("[marketplace_router] dispatch error: %s", exc)
+                    logger.error(
+                        "[marketplace_router] dispatch %s FAILED all %d attempts for lead %s.",
+                        target["id"], max_attempts, lead.get("id") or lead.get("lead_id", "")
+                    )
 
         estimated_earnings = routed * float(target.get("cpl") or 0.0)
         self._log_session(
@@ -226,12 +225,107 @@ class MarketplaceRouter:
                 [lead.get("lead_id") or lead.get("id", "") for lead in leads[:routed]],
             )
 
+        return routed, failed, estimated_earnings, session_id, target["id"], target["name"]
+
+    async def dispatch(
+        self,
+        tenant_id: str,
+        marketplace_id: str,
+        leads: list[dict],
+        ping_post: bool = False,
+    ) -> DispatchResult:
+        """
+        Route selected leads to configured marketplace webhooks.
+        If ping_post=True, dispatches to ALL configured marketplaces simultaneously.
+        If ping_post=False, targets the requested marketplace, falling back to other configured
+        marketplaces in descending CPL order if the primary target fails.
+        """
+        configs = self.get_marketplace_configs(tenant_id)
+        configured_targets = [c for c in configs if c.get("configured")]
+
+        if not configured_targets:
+            return DispatchResult(
+                session_id="", marketplace_id=marketplace_id,
+                marketplace_name=marketplace_id, leads_routed=0,
+                estimated_earnings=0.0, failed=0,
+                error="No configured marketplace found. Add a webhook URL in Integrations → Marketplaces.",
+            )
+
+        if ping_post:
+            # Simultaneous dispatch to all configured targets
+            tasks = [self._dispatch_target_leads(tenant_id, target, leads) for target in configured_targets]
+            results = await asyncio.gather(*tasks)
+
+            total_routed = sum(r[0] for r in results)
+            total_failed = sum(r[1] for r in results)
+            total_earnings = sum(r[2] for r in results)
+            session_ids = ", ".join(r[3] for r in results)
+            mp_ids = ", ".join(r[4] for r in results)
+            mp_names = ", ".join(r[5] for r in results)
+
+            return DispatchResult(
+                session_id=session_ids,
+                marketplace_id=mp_ids,
+                marketplace_name=mp_names,
+                leads_routed=total_routed,
+                estimated_earnings=total_earnings,
+                failed=total_failed,
+            )
+
+        # Non-ping-post (single routing with fallback)
+        primary_target = next((c for c in configured_targets if c["id"] == marketplace_id), None)
+        if not primary_target:
+            return DispatchResult(
+                session_id="", marketplace_id=marketplace_id,
+                marketplace_name=marketplace_id, leads_routed=0,
+                estimated_earnings=0.0, failed=len(leads),
+                error=f"Selected marketplace '{marketplace_id}' is not configured.",
+            )
+
+        routed, failed, earnings, session_id, target_id, target_name = await self._dispatch_target_leads(
+            tenant_id, primary_target, leads
+        )
+
+        # If primary failed to route any leads, attempt sequential fallback
+        if routed == 0 and leads:
+            logger.warning("[marketplace_router] Primary marketplace %s failed. Trying fallbacks...", marketplace_id)
+            fallback_targets = sorted(
+                [c for c in configured_targets if c["id"] != marketplace_id],
+                key=lambda x: x.get("cpl", 0.0),
+                reverse=True
+            )
+            for fb_target in fallback_targets:
+                fb_routed, fb_failed, fb_earnings, fb_session_id, fb_target_id, fb_target_name = await self._dispatch_target_leads(
+                    tenant_id, fb_target, leads
+                )
+                if fb_routed > 0:
+                    logger.info("[marketplace_router] Fallback to %s succeeded.", fb_target_id)
+                    return DispatchResult(
+                        session_id=fb_session_id,
+                        marketplace_id=fb_target_id,
+                        marketplace_name=fb_target_name,
+                        leads_routed=fb_routed,
+                        estimated_earnings=fb_earnings,
+                        failed=fb_failed,
+                    )
+
+            # If fallbacks also failed, return primary target failures
+            return DispatchResult(
+                session_id=session_id,
+                marketplace_id=target_id,
+                marketplace_name=target_name,
+                leads_routed=routed,
+                estimated_earnings=earnings,
+                failed=failed,
+                error="Primary and fallback marketplaces failed to receive leads.",
+            )
+
         return DispatchResult(
             session_id=session_id,
-            marketplace_id=target["id"],
-            marketplace_name=target["name"],
+            marketplace_id=target_id,
+            marketplace_name=target_name,
             leads_routed=routed,
-            estimated_earnings=estimated_earnings,
+            estimated_earnings=earnings,
             failed=failed,
         )
 

@@ -1244,17 +1244,31 @@ async def create_campaign_list(body: CampaignListSaveRequest, x_tenant_id: str =
 
 @app.get("/campaigns/lists", dependencies=[Depends(require_api_key)])
 async def get_campaign_lists(x_tenant_id: str = Header(...)):
-    """Return all contact lists for this tenant."""
+    """Return all contact lists for this tenant (campaign lists + company lists merged)."""
     from supabase import create_client
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
-    resp = (
+    camp_resp = (
         db.table("urap_campaign_lists")
         .select("id, name, contact_count, created_at")
         .eq("tenant_id", x_tenant_id)
         .order("created_at", desc=True)
         .execute()
     )
-    return {"lists": resp.data or [], "count": len(resp.data or [])}
+    company_resp = (
+        db.table("urap_lead_lists")
+        .select("id, name, item_count, created_at")
+        .eq("tenant_id", x_tenant_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    campaign_lists = camp_resp.data or []
+    company_lists = [
+        {"id": f"company:{r['id']}", "name": r["name"], "contact_count": r.get("item_count", 0), "created_at": r["created_at"]}
+        for r in (company_resp.data or [])
+    ]
+    merged = campaign_lists + company_lists
+    merged.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"lists": merged, "count": len(merged)}
 
 
 @app.delete("/campaigns/lists/{list_id}", dependencies=[Depends(require_api_key)])
@@ -1319,15 +1333,36 @@ async def dispatch_campaign(campaign_id: str, x_tenant_id: str = Header(...)):
     # mark as sending
     db.table("urap_campaigns").update({"status": "sending"}).eq("id", campaign_id).execute()
 
-    # fetch contacts
-    contacts_resp = (
-        db.table("urap_campaign_list_contacts")
-        .select("lead_id, name, title, company, email, phone, email_verified, enrichment_source")
-        .eq("list_id", campaign["list_id"])
-        .eq("tenant_id", x_tenant_id)
-        .execute()
-    )
-    contacts = contacts_resp.data or []
+    # fetch contacts — support both campaign lists and company lists
+    raw_list_id: str = campaign["list_id"]
+    if raw_list_id.startswith("company:"):
+        actual_id = raw_list_id[len("company:"):]
+        items_resp = (
+            db.table("urap_lead_list_items")
+            .select("company_name, contact_name, contact_title, email, phone")
+            .eq("list_id", actual_id)
+            .execute()
+        )
+        contacts = [
+            {
+                "name": r.get("contact_name") or r.get("company_name", ""),
+                "first_name": (r.get("contact_name") or "").split()[0] if r.get("contact_name") else r.get("company_name", ""),
+                "company": r.get("company_name", ""),
+                "title": r.get("contact_title", ""),
+                "email": r.get("email", ""),
+                "phone": r.get("phone", ""),
+            }
+            for r in (items_resp.data or [])
+        ]
+    else:
+        contacts_resp = (
+            db.table("urap_campaign_list_contacts")
+            .select("lead_id, name, title, company, email, phone, email_verified, enrichment_source")
+            .eq("list_id", raw_list_id)
+            .eq("tenant_id", x_tenant_id)
+            .execute()
+        )
+        contacts = contacts_resp.data or []
 
     result = await dispatch(
         campaign=campaign, contacts=contacts,
