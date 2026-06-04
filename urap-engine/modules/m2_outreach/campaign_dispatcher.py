@@ -7,6 +7,7 @@ Merge vars: {{name}}, {{first_name}}, {{company}}, {{title}}, {{personalized_ope
 import os
 import asyncio
 import uuid
+import json
 from typing import Optional
 import httpx
 
@@ -151,3 +152,103 @@ async def dispatch(
         pass
 
     return {"sent": sent, "failed": failed, "skipped": skipped}
+
+
+async def dispatch_stream(
+    *,
+    campaign: dict,
+    contacts: list[dict],
+    tenant_id: str,
+    email_svc,   # EmailSequenceService
+    db,          # Supabase client
+):
+    """Dispatch campaign to all contacts and yield progress events as NDJSON."""
+    api_key       = os.environ.get("ANTHROPIC_API_KEY", "")
+    ai_personalize = campaign.get("ai_personalize", False)
+    campaign_id   = campaign["id"]
+    subject_tpl   = campaign.get("subject_template", "")
+    body_tpl      = campaign.get("body_template", "")
+    from_email    = campaign.get("from_email", "")
+    from_name     = campaign.get("from_name", "") or ""
+
+    yield json.dumps({"event": "start", "total": len(contacts)}) + "\n"
+
+    # ── 1. Generate personalized openers in parallel batches ─────────────────
+    openers: list[str] = [""] * len(contacts)
+    if ai_personalize and api_key:
+        yield json.dumps({"event": "status", "message": "Analyzing leads and generating AI personalized openers..."}) + "\n"
+        async with httpx.AsyncClient() as client:
+            for i in range(0, len(contacts), _OPENER_BATCH):
+                batch   = contacts[i : i + _OPENER_BATCH]
+                yield json.dumps({"event": "status", "message": f"Personalizing leads {i+1} to {min(i+_OPENER_BATCH, len(contacts))}..."}) + "\n"
+                results = await asyncio.gather(
+                    *[_haiku_opener(c, api_key, client) for c in batch],
+                    return_exceptions=True,
+                )
+                for j, r in enumerate(results):
+                    openers[i + j] = r if isinstance(r, str) else ""
+
+    # ── 2. Send each contact ──────────────────────────────────────────────────
+    sent = failed = skipped = 0
+    send_records: list[dict] = []
+
+    for idx, contact in enumerate(contacts):
+        email = (contact.get("email") or "").strip()
+        name = contact.get("name") or "there"
+        if not email:
+            skipped += 1
+            yield json.dumps({"event": "skipped", "email": "(no email)", "name": name, "reason": "Missing email address"}) + "\n"
+            continue
+
+        yield json.dumps({"event": "sending", "email": email, "name": name}) + "\n"
+
+        opener    = openers[idx]
+        subject   = _render(subject_tpl, contact, opener)
+        body_html = _render(body_tpl, contact, opener)
+        lead_id   = contact.get("lead_id") or str(uuid.uuid4())
+
+        result = await email_svc.send_single(
+            lead_id=lead_id,
+            to_email=email,
+            to_name=contact.get("name") or "",
+            from_email=from_email,
+            from_name=from_name,
+            subject=subject,
+            body_html=body_html,
+            require_consent=False,
+            tag=f"campaign:{campaign_id}",
+        )
+
+        send_records.append({
+            "id":          str(uuid.uuid4()),
+            "campaign_id": campaign_id,
+            "tenant_id":   tenant_id,
+            "lead_id":     lead_id,
+            "to_email":    email,
+            "subject":     subject,
+            "status":      "sent" if result.success else "failed",
+            "provider":    result.provider,
+            "error":       result.error,
+        })
+
+        if result.success:
+            sent += 1
+            yield json.dumps({"event": "sent", "email": email, "name": name}) + "\n"
+        else:
+            failed += 1
+            yield json.dumps({"event": "failed", "email": email, "name": name, "error": result.error or "Delivery failed"}) + "\n"
+
+    # ── 3. Persist results ───────────────────────────────────────────────────
+    yield json.dumps({"event": "status", "message": "Saving campaign progress to database..."}) + "\n"
+    try:
+        if send_records:
+            db.table("urap_campaign_sends").insert(send_records).execute()
+        db.table("urap_campaigns").update({
+            "status":       "sent",
+            "sent_count":   sent,
+            "failed_count": failed,
+        }).eq("id", campaign_id).execute()
+    except Exception as exc:
+        yield json.dumps({"event": "status", "message": f"Database update error: {str(exc)}"}) + "\n"
+
+    yield json.dumps({"event": "complete", "sent": sent, "failed": failed, "skipped": skipped}) + "\n"

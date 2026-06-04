@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ENGINE, TENANT } from '../lib/config.js';
 
@@ -89,6 +89,20 @@ export function Campaigns() {
   const [result, setResult]             = useState<DispatchResult | null>(null);
   const [error, setError]               = useState<string | null>(null);
 
+  // Streaming progress states
+  const [streamLogs, setStreamLogs] = useState<string[]>([]);
+  const [streamProgress, setStreamProgress] = useState<{
+    current: number;
+    total: number;
+    sent: number;
+    failed: number;
+    skipped: number;
+    statusMsg: string;
+  }>({ current: 0, total: 0, sent: 0, failed: 0, skipped: 0, statusMsg: '' });
+  const [showStreamModal, setShowStreamModal] = useState(false);
+  const [generatingTemplate, setGeneratingTemplate] = useState(false);
+  const terminalEndRef = useRef<HTMLDivElement | null>(null);
+
   const fetchLists = useCallback(async () => {
     try {
       const res = await fetch(`${ENGINE}/campaigns/lists`, { headers: HEADERS });
@@ -120,8 +134,36 @@ export function Campaigns() {
     }
   }, [location.state]);
 
+  // Scroll to bottom when stream logs update
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [streamLogs]);
+
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm(f => ({ ...f, [key]: val }));
+  }
+
+  async function handleGenerateTemplate() {
+    if (!form.list_id) return;
+    setGeneratingTemplate(true);
+    setError(null);
+    try {
+      const res = await fetch(`${ENGINE}/campaigns/generate-templates`, {
+        method: 'POST',
+        headers: HEADERS,
+        body: JSON.stringify({ list_id: form.list_id }),
+      });
+      if (!res.ok) throw new Error('Failed to generate template');
+      const data = await res.json();
+      setField('subject_template', data.subject || '');
+      setField('body_template', data.body_html || '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGeneratingTemplate(false);
+    }
   }
 
   async function handleCreateAndSend() {
@@ -129,6 +171,10 @@ export function Campaigns() {
     setDispatching(true);
     setError(null);
     setResult(null);
+    setStreamLogs([]);
+    setStreamProgress({ current: 0, total: 0, sent: 0, failed: 0, skipped: 0, statusMsg: 'Creating campaign...' });
+    setShowStreamModal(true);
+
     try {
       // 1. Create campaign
       const createRes = await fetch(`${ENGINE}/campaigns`, {
@@ -143,16 +189,91 @@ export function Campaigns() {
       const campaign: Campaign = await createRes.json();
       if (!campaign.id) throw new Error('Campaign creation failed');
 
-      // 2. Dispatch
+      setStreamLogs(prev => [...prev, `[INFO] Campaign "${form.name}" created successfully. ID: ${campaign.id}`]);
+
+      // 2. Dispatch with Streaming
       const dispatchRes = await fetch(`${ENGINE}/campaigns/${campaign.id}/dispatch`, {
         method: 'POST', headers: HEADERS,
       });
-      const dispatchData: DispatchResult = await dispatchRes.json();
-      setResult(dispatchData);
-      setForm(EMPTY_FORM);
-      await fetchCampaigns();
+
+      if (!dispatchRes.body) throw new Error('Response stream is not available');
+      
+      const reader = dispatchRes.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      const handleStreamEvent = (data: any) => {
+        if (data.event === 'start') {
+          setStreamProgress(prev => ({ ...prev, total: data.total, statusMsg: `Starting outreach to ${data.total} contacts...` }));
+          setStreamLogs(prev => [...prev, `[START] Starting dispatch to ${data.total} contacts.`]);
+        } else if (data.event === 'status') {
+          setStreamProgress(prev => ({ ...prev, statusMsg: data.message }));
+          setStreamLogs(prev => [...prev, `[INFO] ${data.message}`]);
+        } else if (data.event === 'sending') {
+          setStreamLogs(prev => [...prev, `[SENDING] Sending to ${data.name} <${data.email}>...`]);
+        } else if (data.event === 'sent') {
+          setStreamProgress(prev => ({
+            ...prev,
+            current: prev.current + 1,
+            sent: prev.sent + 1,
+          }));
+          setStreamLogs(prev => [...prev, `[SUCCESS] Sent email to ${data.name} <${data.email}>`]);
+        } else if (data.event === 'failed') {
+          setStreamProgress(prev => ({
+            ...prev,
+            current: prev.current + 1,
+            failed: prev.failed + 1,
+          }));
+          setStreamLogs(prev => [...prev, `[FAILED] Failed to send to ${data.name} <${data.email}>: ${data.error}`]);
+        } else if (data.event === 'skipped') {
+          setStreamProgress(prev => ({
+            ...prev,
+            current: prev.current + 1,
+            skipped: prev.skipped + 1,
+          }));
+          setStreamLogs(prev => [...prev, `[SKIPPED] Skipped ${data.name} <${data.email}>: ${data.reason}`]);
+        } else if (data.event === 'complete') {
+          setStreamProgress(prev => ({ ...prev, statusMsg: 'Campaign dispatch completed.' }));
+          setStreamLogs(prev => [...prev, `[COMPLETE] Dispatched: ${data.sent} sent, ${data.failed} failed, ${data.skipped} skipped.`]);
+          setResult({ sent: data.sent, failed: data.failed, skipped: data.skipped });
+        } else if (data.event === 'error') {
+          setError(data.error);
+          setStreamLogs(prev => [...prev, `[ERROR] Campaign dispatch error: ${data.error}`]);
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep the last partial line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            handleStreamEvent(data);
+          } catch (e) {
+            console.error('Error parsing NDJSON chunk:', e);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        try {
+          const data = JSON.parse(buffer);
+          handleStreamEvent(data);
+        } catch (e) {
+          console.error('Error parsing final NDJSON chunk:', e);
+        }
+      }
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(errMsg);
+      setStreamLogs(prev => [...prev, `[ERROR] Dispatch failed: ${errMsg}`]);
+      setStreamProgress(prev => ({ ...prev, statusMsg: `Error: ${errMsg}` }));
     } finally {
       setDispatching(false);
     }
@@ -272,7 +393,26 @@ export function Campaigns() {
 
             {/* List picker */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Contact List</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs text-gray-400">Contact List</label>
+                {form.list_id && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateTemplate}
+                    disabled={generatingTemplate}
+                    className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {generatingTemplate ? (
+                      <>
+                        <span className="w-3 h-3 border border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      '🪄 Auto-Generate Template'
+                    )}
+                  </button>
+                )}
+              </div>
               {lists.length === 0 ? (
                 <div className="text-xs text-yellow-500 bg-yellow-900/20 border border-yellow-800/40 rounded-lg px-3 py-2">
                   No saved lists yet — run a Prospector search and save results first.
@@ -389,6 +529,85 @@ export function Campaigns() {
           </div>
         )}
       </div>
+
+      {/* ── Streaming Visualizer Modal ── */}
+      {showStreamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col h-[480px]">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-ping" />
+                <span className="text-sm font-semibold text-white">Campaign Sending Progress</span>
+              </div>
+              {!dispatching && (
+                <button
+                  onClick={() => { setShowStreamModal(false); setForm(EMPTY_FORM); fetchCampaigns(); }}
+                  className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors font-medium"
+                >
+                  Close
+                </button>
+              )}
+            </div>
+
+            {/* Progress Section */}
+            <div className="p-6 border-b border-gray-800 shrink-0 space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400 font-medium">{streamProgress.statusMsg || 'Initializing...'}</span>
+                <span className="text-indigo-400 font-mono font-bold">
+                  {streamProgress.total > 0 ? `${streamProgress.current} / ${streamProgress.total}` : '0 / 0'}
+                </span>
+              </div>
+              
+              {/* Progress Bar Container */}
+              <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${streamProgress.total > 0 ? (streamProgress.current / streamProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+
+              {/* Stats Counters */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-gray-800/40 rounded-lg p-2.5 border border-gray-800">
+                  <div className="text-lg font-bold text-green-400">{streamProgress.sent}</div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Sent</div>
+                </div>
+                <div className="bg-gray-800/40 rounded-lg p-2.5 border border-gray-800">
+                  <div className="text-lg font-bold text-red-400">{streamProgress.failed}</div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Failed</div>
+                </div>
+                <div className="bg-gray-800/40 rounded-lg p-2.5 border border-gray-800">
+                  <div className="text-lg font-bold text-gray-400">{streamProgress.skipped}</div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Skipped</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Terminal Log Console */}
+            <div className="flex-1 bg-black p-4 font-mono text-xs overflow-y-auto space-y-1.5 selection:bg-indigo-500 selection:text-white">
+              {streamLogs.map((log, i) => {
+                let color = 'text-gray-400';
+                if (log.startsWith('[SUCCESS]')) color = 'text-green-400';
+                else if (log.startsWith('[FAILED]')) color = 'text-red-400 font-semibold';
+                else if (log.startsWith('[SENDING]')) color = 'text-yellow-400';
+                else if (log.startsWith('[SKIPPED]')) color = 'text-gray-500';
+                else if (log.startsWith('[START]') || log.startsWith('[COMPLETE]')) color = 'text-indigo-400 font-bold';
+                else if (log.startsWith('[ERROR]')) color = 'text-red-500 font-bold';
+                
+                return (
+                  <div key={i} className={`${color} leading-relaxed break-all`}>
+                    {log}
+                  </div>
+                );
+              })}
+              {/* Dummy div to scroll to */}
+              <div ref={terminalEndRef} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

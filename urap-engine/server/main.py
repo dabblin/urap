@@ -10,6 +10,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 from fastapi import FastAPI, Request, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
@@ -299,6 +300,10 @@ class CampaignCreateRequest(BaseModel):
     subject_template: str
     body_template:    str
     ai_personalize:   bool = False
+
+
+class GenerateTemplatesRequest(BaseModel):
+    list_id:          str
 
 
 class CampaignPageCreateRequest(BaseModel):
@@ -1317,17 +1322,96 @@ async def list_campaigns(x_tenant_id: str = Header(...)):
     return {"campaigns": resp.data or [], "count": len(resp.data or [])}
 
 
+@app.post("/campaigns/generate-templates", dependencies=[Depends(require_api_key)])
+async def generate_templates(body: GenerateTemplatesRequest, x_tenant_id: str = Header(...)):
+    """Generate cold email template subject + HTML body using Gemini Flash based on list name context."""
+    from supabase import create_client
+    import httpx
+    import json
+    
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    
+    list_name = "potential leads"
+    raw_list_id = body.list_id
+    try:
+        if raw_list_id.startswith("company:"):
+            actual_id = raw_list_id[len("company:"):]
+            resp = db.table("urap_lead_lists").select("name").eq("id", actual_id).eq("tenant_id", x_tenant_id).execute()
+            if resp.data:
+                list_name = resp.data[0]["name"]
+        else:
+            resp = db.table("urap_campaign_lists").select("name").eq("id", raw_list_id).eq("tenant_id", x_tenant_id).execute()
+            if resp.data:
+                list_name = resp.data[0]["name"]
+    except Exception as exc:
+        print(f"[generate-templates] Error fetching list name: {exc}")
+
+    # Fallback default template
+    subject = "Quick question about {{company}}"
+    body_html = (
+        "<p>Hi {{first_name}},</p>\n"
+        "<p>{{personalized_opener}} I noticed you're leading efforts as {{title}} at {{company}}.</p>\n"
+        "<p>We work with companies in your space to help streamline B2B growth and run outreach automation.</p>\n"
+        "<p>Are you open to a brief 10-minute call sometime this week to see if there is a mutual fit?</p>\n"
+        "<p>Best,</p>"
+    )
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if api_key:
+        GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        prompt = f"""You are an expert B2B sales copywriter. Write a highly personalized cold outreach email template designed for contacts on a list named: "{list_name}".
+
+The template MUST use placeholders that will be replaced dynamically later. Available placeholders are:
+- `{{name}}` (Full Name)
+- `{{first_name}}` (First Name)
+- `{{company}}` (Company Name)
+- `{{title}}` (Job Title)
+- `{{personalized_opener}}` (Personalized AI opening sentence generated for the lead)
+
+Rules for copy:
+- Subject: 6–8 words, no emojis, curiosity-driven, no "quick" or "just" (can use placeholders, e.g. "Question about {{company}}")
+- Body: 2 to 3 short paragraphs, under 150 words total
+- Tone: direct, peer-to-peer, professional, no hype
+- First paragraph MUST start with, or naturally integrate, `{{personalized_opener}}`
+- Single clear CTA: propose a 15-minute call this week
+
+Return valid JSON only: {{"subject": "...", "body_html": "<p>...</p><p>...</p><p>...</p>"}}"""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{GEMINI_URL}?key={api_key}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"responseMimeType": "application/json"},
+                    },
+                    timeout=30,
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text)
+                subject = parsed.get("subject", subject)
+                body_html = parsed.get("body_html", body_html)
+        except Exception as e:
+            print(f"[generate-templates] Gemini error: {e}")
+
+    return {"subject": subject, "body_html": body_html}
+
+
 @app.post("/campaigns/{campaign_id}/dispatch", dependencies=[Depends(require_api_key)])
 async def dispatch_campaign(campaign_id: str, x_tenant_id: str = Header(...)):
-    """Personalize + batch-send a campaign to its list. Returns {sent, failed, skipped}."""
+    """Personalize + batch-send a campaign to its list. Returns a StreamingResponse with send progress."""
     from supabase import create_client
-    from modules.m2_outreach.campaign_dispatcher import dispatch
+    from modules.m2_outreach.campaign_dispatcher import dispatch_stream
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
 
     # fetch campaign
     camp_resp = db.table("urap_campaigns").select("*").eq("id", campaign_id).eq("tenant_id", x_tenant_id).execute()
     if not camp_resp.data:
-        return {"error": "campaign_not_found"}
+        async def err_generator():
+            import json
+            yield json.dumps({"event": "error", "error": "campaign_not_found"}) + "\n"
+        return StreamingResponse(err_generator(), media_type="application/x-ndjson")
     campaign = camp_resp.data[0]
 
     # mark as sending
@@ -1364,11 +1448,16 @@ async def dispatch_campaign(campaign_id: str, x_tenant_id: str = Header(...)):
         )
         contacts = contacts_resp.data or []
 
-    result = await dispatch(
-        campaign=campaign, contacts=contacts,
-        tenant_id=x_tenant_id, email_svc=_email_svc, db=db,
+    return StreamingResponse(
+        dispatch_stream(
+            campaign=campaign,
+            contacts=contacts,
+            tenant_id=x_tenant_id,
+            email_svc=_email_svc,
+            db=db,
+        ),
+        media_type="application/x-ndjson"
     )
-    return result
 
 
 @app.get("/campaigns/{campaign_id}/stats", dependencies=[Depends(require_api_key)])
