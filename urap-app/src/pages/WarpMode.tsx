@@ -170,9 +170,17 @@ export function WarpMode() {
         </h2>
 
         {!result && !loading && (
-          <p className="text-gray-600 text-sm mt-4">
-            Configure an ICP and launch Warp Mode to generate personalized sequences.
-          </p>
+          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-gray-700 rounded-lg bg-gray-900/50 mt-4">
+            <div className="w-16 h-16 bg-purple-900/30 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <p className="text-gray-300 font-medium">Ready to Warp</p>
+            <p className="text-gray-500 text-sm mt-1 max-w-sm text-center">
+              Configure an ICP and launch Warp Mode to generate highly personalized, AI-driven outreach sequences.
+            </p>
+          </div>
         )}
 
         {result?.error && (
@@ -229,8 +237,16 @@ export function WarpMode() {
                     dangerouslySetInnerHTML={{ __html: lead.body_html }}
                   />
                 </div>
-                <div className="flex gap-3 pt-1">
+                <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-800/50">
                   <span className="text-xs text-gray-500">{lead.email}</span>
+                  <div className="flex gap-2">
+                    <button className="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors border border-gray-700">
+                      Edit Draft
+                    </button>
+                    <button className="text-xs px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors shadow-sm">
+                      Export to Campaign
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

@@ -20,6 +20,7 @@ import { LeadRouter } from './pages/LeadRouter.js';
 import { Revenue } from './pages/Revenue.js';
 import { Campaigns } from './pages/Campaigns.js';
 import { LandingPages } from './pages/LandingPages.js';
+import { Analytics } from './pages/Analytics.js';
 import { MobileBottomNav } from './components/layout/MobileBottomNav.js';
 
 type SelectedLead = {
@@ -59,9 +60,10 @@ export default function App() {
               <Route path="/revenue" element={<Revenue />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/landing-pages" element={<LandingPages />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/" element={<Navigate to="/prospector" replace />} />
               {tools
-                .filter(t => !['prospector', 'company-search', 'emailing', 'buyer-intent', 'job-changes', 'connect', 'warp-mode', 'autopilot', 'reply-intel', 'calling', 'integrations', 'api-keys', 'bulk-credits', 'lead-router', 'revenue', 'campaigns', 'landing-pages'].includes(t.id))
+                .filter(t => !['prospector', 'company-search', 'emailing', 'buyer-intent', 'job-changes', 'connect', 'warp-mode', 'autopilot', 'reply-intel', 'calling', 'integrations', 'api-keys', 'bulk-credits', 'lead-router', 'revenue', 'campaigns', 'landing-pages', 'analytics'].includes(t.id))
                 .map(tool => (
                   <Route
                     key={tool.id}

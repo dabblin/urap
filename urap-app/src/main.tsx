@@ -18,6 +18,7 @@ registerTool({ id: 'emailing', label: 'Emailing', pillar: 'engagement', icon: '�
 registerTool({ id: 'warp-mode', label: 'Warp Mode', pillar: 'automation', icon: '⚡', route: '/warp-mode', sprint: 4 });
 registerTool({ id: 'autopilot', label: 'Autopilot', pillar: 'automation', icon: '🤖', route: '/autopilot', sprint: 4 });
 registerTool({ id: 'reply-intel', label: 'Reply Intel', pillar: 'automation', icon: '🧠', route: '/reply-intel', sprint: 4 });
+registerTool({ id: 'analytics', label: 'Analytics', pillar: 'automation', icon: '📊', route: '/analytics', sprint: 4 });
 
 // Sprint 5
 registerTool({ id: 'calling', label: 'Calling', pillar: 'engagement', icon: '📞', route: '/calling', sprint: 5 });

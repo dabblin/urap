@@ -110,6 +110,7 @@ export function BuyerIntent({ onSelectLead }: Props) {
                 <th className="text-left py-2 pr-4">Title</th>
                 <th className="text-left py-2 pr-4">Company</th>
                 <th className="text-left py-2 pr-4">Email</th>
+                <th className="text-left py-2 pr-4">Intent Signals</th>
                 <th className="text-left py-2 pr-4">Status</th>
                 <th className="text-left py-2">Source</th>
               </tr>
@@ -130,6 +131,24 @@ export function BuyerIntent({ onSelectLead }: Props) {
                   <td className="py-2 pr-4 text-gray-400">{c.title || '—'}</td>
                   <td className="py-2 pr-4 text-gray-300">{c.company}</td>
                   <td className="py-2 pr-4 text-gray-400">{c.email}</td>
+                  <td className="py-2 pr-4">
+                    <div className="flex flex-wrap gap-1">
+                      {c.intent_signals && c.intent_signals.length > 0 ? (
+                        c.intent_signals.map(s => {
+                          const badgeColor = s.startsWith('G2') ? 'bg-purple-900/50 text-purple-300 border-purple-800/50' :
+                                             s.startsWith('Bombora') ? 'bg-orange-900/50 text-orange-300 border-orange-800/50' :
+                                             'bg-blue-900/50 text-blue-300 border-blue-800/50';
+                          return (
+                            <span key={s} className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${badgeColor}`}>
+                              {s}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <span className="text-gray-600 text-xs">—</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-2 pr-4">
                     <span className="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-300 capitalize">
                       {c.global_status.replace('_', ' ')}

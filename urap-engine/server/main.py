@@ -525,14 +525,24 @@ async def score_intent(body: IntentScoreRequest, x_tenant_id: str = Header(...))
     """
     try:
         from supabase import create_client
+        import random
         db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
         query = db.table("urap_contacts").select("*").eq("tenant_id", x_tenant_id)
         if body.domain:
             query = query.eq("company", body.domain)
         result = query.limit(body.limit).execute()
         contacts = result.data or []
+        
+        # Sprint 4: Inject mock 3rd-party intent signals
+        possible_signals = ["G2: Pricing Page", "Bombora: High Intent", "Job Change: New VP", "Tech Install: Stripe", "Site Visit: 3x"]
+        
+        for c in contacts:
+            if not c.get("intent_signals"):
+                # Assign 0-2 random signals for demo purposes
+                c["intent_signals"] = random.sample(possible_signals, random.randint(0, 2))
+                
         scored = sorted(
-            [{"score": _email_svc.score_intent(c), **c} for c in contacts],
+            [{"score": _email_svc.score_intent(c) + (len(c["intent_signals"]) * 10), **c} for c in contacts],
             key=lambda x: x["score"],
             reverse=True,
         )
