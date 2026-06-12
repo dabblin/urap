@@ -5,7 +5,7 @@
   "description": "URAP — Unified Revenue Acceleration Platform frontend (Seamless.AI layout model)",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3034 --strictPort",
+    "dev": "vite --port 3035 --strictPort",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
