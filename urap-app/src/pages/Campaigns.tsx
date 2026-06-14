@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ENGINE, TENANT } from '../lib/config.js';
 
-const API_KEY = '';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 const HEADERS = {
   'Content-Type': 'application/json',

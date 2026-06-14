@@ -1298,16 +1298,58 @@ async def delete_campaign_list(list_id: str, x_tenant_id: str = Header(...)):
 
 @app.post("/campaigns", dependencies=[Depends(require_api_key)])
 async def create_campaign(body: CampaignCreateRequest, x_tenant_id: str = Header(...)):
-    """Create a new campaign (status: draft)."""
+    """Create a new campaign (status: draft).
+
+    urap_campaigns.list_id is a uuid column, but Companies Search lists arrive
+    as "company:<uuid>". For those we materialize a real campaign list (mirror
+    the lead-list items into urap_campaign_lists / urap_campaign_list_contacts)
+    and store its uuid, so the campaign always references a valid uuid list.
+    """
     from supabase import create_client
     import uuid as _uuid
     from datetime import datetime, timezone
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
-    campaign_id = str(_uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+
+    list_id = body.list_id
+    if list_id.startswith("company:"):
+        source_id = list_id[len("company:"):]
+        src_resp = db.table("urap_lead_lists").select("name").eq("id", source_id).execute()
+        src_name = (src_resp.data[0]["name"] if src_resp.data else body.name.strip()) + " — Campaign"
+        items_resp = (
+            db.table("urap_lead_list_items")
+            .select("company_name, contact_name, contact_title, email, phone")
+            .eq("list_id", source_id)
+            .execute()
+        )
+        items = items_resp.data or []
+        mirror_id = str(_uuid.uuid4())
+        emailable = [r for r in items if (r.get("email") or "").strip()]
+        db.table("urap_campaign_lists").insert({
+            "id": mirror_id, "tenant_id": x_tenant_id,
+            "name": src_name, "contact_count": len(emailable), "created_at": now,
+        }).execute()
+        rows = [
+            {
+                "id": str(_uuid.uuid4()), "list_id": mirror_id, "tenant_id": x_tenant_id,
+                "lead_id": str(_uuid.uuid4()),
+                "name": (r.get("contact_name") or r.get("company_name") or ""),
+                "title": r.get("contact_title") or "",
+                "company": r.get("company_name") or "",
+                "email": (r.get("email") or "").strip(),
+                "phone": r.get("phone") or "",
+                "enrichment_source": "mirrored:urap_lead_list_items",
+            }
+            for r in emailable
+        ]
+        for i in range(0, len(rows), 50):
+            db.table("urap_campaign_list_contacts").insert(rows[i:i+50]).execute()
+        list_id = mirror_id
+
+    campaign_id = str(_uuid.uuid4())
     row = {
         "id": campaign_id, "tenant_id": x_tenant_id,
-        "name": body.name.strip(), "list_id": body.list_id,
+        "name": body.name.strip(), "list_id": list_id,
         "from_email": body.from_email, "from_name": body.from_name,
         "subject_template": body.subject_template, "body_template": body.body_template,
         "ai_personalize": body.ai_personalize,
