@@ -80,6 +80,18 @@ class EnrichmentService:
         except Exception:
             pass  # cache miss is non-fatal
 
+    def _cache_many(self, contacts: list[dict]) -> None:
+        """Batch upsert. Only rows with an email are persisted (email is the conflict key)."""
+        rows = [c for c in contacts if c.get("email")]
+        if not rows:
+            return
+        # Strip fields the urap_contacts cache doesn't carry to avoid schema errors.
+        clean = [{k: v for k, v in r.items() if k != "location"} for r in rows]
+        try:
+            self._db().table("urap_contacts").upsert(clean, on_conflict="email").execute()
+        except Exception:
+            pass  # cache miss is non-fatal
+
     async def enrich_contact(
         self,
         tenant_id: str,

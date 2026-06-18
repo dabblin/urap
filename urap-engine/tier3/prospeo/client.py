@@ -91,7 +91,8 @@ class ProspeoClient:
                 headers=self._headers,
                 json={
                     "filters": {
-                        "company_website": {"value": domain},
+                        # Prospeo expects a list value here, not {"value": ...}
+                        "company_website": [domain],
                     },
                     "page": 1,
                 },

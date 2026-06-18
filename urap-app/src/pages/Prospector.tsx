@@ -50,13 +50,6 @@ function normalizeContact(raw: Record<string, unknown>): ContactResult {
   };
 }
 
-function parseAiQuery(q: string): { domain: string; title: string } {
-  const m = q.match(/\b[\w-]+\.(com|io|ai|co|net|org|app|us|tech|dev)\b/i);
-  const domain = m ? m[0] : '';
-  const title  = domain ? q.replace(m![0], '').replace(/\s{2,}/g, ' ').trim() : q;
-  return { domain, title };
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SelectedLead {
@@ -260,20 +253,30 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
     setFilters(f => ({ ...f, [id]: val }));
   }
 
-  async function runSearch(domain: string, title: string) {
-    if (!domain.trim() && !title.trim()) return;
+  async function runSearch(query: string) {
+    const hasFilter = Object.values(filters).some(v => v.trim());
+    if (!query.trim() && !hasFilter) return;
     setLoading(true);
     setError(null);
     try {
-      const bulk     = !domain.trim() || !title.trim();
-      const endpoint = bulk ? '/enrich/bulk' : '/enrich';
-      const body     = bulk
-        ? { domain: (domain || title).trim(), limit: 25 }
-        : { domain: domain.trim(), title: title.trim() };
+      // People finder: discover named people (Apollo → public LinkedIn), then the
+      // engine reveals + verifies each email via the enrichment waterfall.
+      const body = {
+        query,
+        titles:       filters.titles,
+        seniority:    filters.seniority,
+        department:   filters.department,
+        location:     filters.location,
+        domain:       filters.domain,
+        industry:     filters.industry,
+        keywords:     filters.keywords,
+        employeeSize: filters.employeeSize,
+        limit: 25,
+      };
 
-      const resp = await fetch(`${ENGINE}${endpoint}`, {
+      const resp = await fetch(`${ENGINE}/people/search`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-tenant-id': TENANT },
         body:    JSON.stringify(body),
       });
       if (!resp.ok) throw new Error(`Engine ${resp.status}: ${await resp.text()}`);
@@ -287,15 +290,16 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
   }
 
   function handleFilterSearch() {
-    runSearch(filters.domain, filters.titles);
+    runSearch(aiQuery);
   }
 
   function handleAiSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!aiQuery.trim()) return;
-    const { domain, title } = parseAiQuery(aiQuery);
-    setRecentSearches(p => [aiQuery, ...p.filter(q => q !== aiQuery)].slice(0, 10));
-    runSearch(domain || filters.domain, title || filters.titles);
+    if (!aiQuery.trim() && !Object.values(filters).some(v => v.trim())) return;
+    if (aiQuery.trim()) {
+      setRecentSearches(p => [aiQuery, ...p.filter(q => q !== aiQuery)].slice(0, 10));
+    }
+    runSearch(aiQuery);
   }
 
   const statusBadge = (v: boolean) =>
@@ -303,9 +307,12 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
       : 'bg-yellow-900/40 text-yellow-400 border border-yellow-800/60';
 
   const sourceBadge = (s: string) =>
-    ({ prospeo: 'bg-indigo-900/60 text-indigo-300',
-       snov:    'bg-purple-900/60 text-purple-300',
-       hunter:  'bg-orange-900/50 text-orange-300' } as Record<string, string>)[s]
+    ({ prospeo:    'bg-indigo-900/60 text-indigo-300',
+       snov:       'bg-purple-900/60 text-purple-300',
+       hunter:     'bg-orange-900/50 text-orange-300',
+       apollo:     'bg-sky-900/60 text-sky-300',
+       brave:      'bg-red-900/50 text-red-300',
+       duckduckgo: 'bg-amber-900/50 text-amber-300' } as Record<string, string>)[s.split('+')[0]]
     ?? 'bg-gray-800 text-gray-400';
 
   const showHero    = results.length === 0 && !loading;
@@ -522,6 +529,7 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
                     <th className="px-5 py-3 text-left font-medium">Title</th>
                     <th className="px-5 py-3 text-left font-medium">Company</th>
                     <th className="px-5 py-3 text-left font-medium">Email</th>
+                    <th className="px-5 py-3 text-left font-medium">LinkedIn</th>
                     <th className="px-5 py-3 text-left font-medium">Verified</th>
                     <th className="px-5 py-3 text-left font-medium">Source</th>
                   </tr>
@@ -540,7 +548,22 @@ export function Prospector({ onSelectLead }: ProspectorProps) {
                       <td className="px-5 py-3 text-white font-medium whitespace-nowrap">{c.name}</td>
                       <td className="px-5 py-3 text-gray-300 whitespace-nowrap">{c.title || '—'}</td>
                       <td className="px-5 py-3 text-gray-300 whitespace-nowrap">{c.company}</td>
-                      <td className="px-5 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{c.email}</td>
+                      <td className="px-5 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{c.email || '—'}</td>
+                      <td className="px-5 py-3">
+                        {c.linkedinUrl ? (
+                          <a
+                            href={c.linkedinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-sky-400 hover:text-sky-300 text-xs font-medium"
+                          >
+                            in ↗
+                          </a>
+                        ) : (
+                          <span className="text-gray-600 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${statusBadge(c.emailVerified)}`}>
                           {c.emailVerified ? 'Verified' : 'Unverified'}

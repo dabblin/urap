@@ -205,6 +205,19 @@ class CompanySearchRequest(BaseModel):
     limit:    int = 25
 
 
+class PeopleSearchRequest(BaseModel):
+    query:        Optional[str] = None   # raw natural-language search box
+    titles:       Optional[str] = None
+    seniority:    Optional[str] = None
+    department:   Optional[str] = None
+    location:     Optional[str] = None
+    domain:       Optional[str] = None
+    industry:     Optional[str] = None
+    keywords:     Optional[str] = None
+    employeeSize: Optional[str] = None
+    limit:        int = 25
+
+
 class CompanyContactRequest(BaseModel):
     name:    Optional[str] = None
     domain:  Optional[str] = None
@@ -344,6 +357,20 @@ async def bulk_enrich(body: BulkEnrichRequest, x_tenant_id: str = Header(...)):
     contacts = await _enrichment.bulk_enrich_domain(
         tenant_id=x_tenant_id,
         domain=body.domain,
+        limit=min(body.limit, 50),
+    )
+    return {"contacts": contacts, "count": len(contacts)}
+
+
+@app.post("/people/search", dependencies=[Depends(require_api_key)])
+async def people_search(body: PeopleSearchRequest, x_tenant_id: str = Header(...)):
+    """People finder — discover top-level people (Apollo → DuckDuckGo public LinkedIn),
+    then reveal + verify each email via the enrichment waterfall."""
+    from modules.m1_intelligence.people_discover import discover_people
+    contacts = await discover_people(
+        tenant_id=x_tenant_id,
+        filters=body.model_dump(exclude={"limit"}),
+        enrichment_service=_enrichment,
         limit=min(body.limit, 50),
     )
     return {"contacts": contacts, "count": len(contacts)}
