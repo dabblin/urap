@@ -2,5 +2,8 @@
   "buildCommand": "cd urap-app && npm install && npm run build",
   "outputDirectory": "urap-app/dist",
   "installCommand": "cd urap-app && npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
