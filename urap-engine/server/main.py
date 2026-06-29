@@ -313,10 +313,12 @@ class CampaignCreateRequest(BaseModel):
     subject_template: str
     body_template:    str
     ai_personalize:   bool = False
+    advertised_url:   str = ""
 
 
 class GenerateTemplatesRequest(BaseModel):
-    list_id:          str
+    list_id:        str
+    advertised_url: str = ""
 
 
 class CampaignPageCreateRequest(BaseModel):
@@ -1379,7 +1381,7 @@ async def create_campaign(body: CampaignCreateRequest, x_tenant_id: str = Header
         "name": body.name.strip(), "list_id": list_id,
         "from_email": body.from_email, "from_name": body.from_name,
         "subject_template": body.subject_template, "body_template": body.body_template,
-        "ai_personalize": body.ai_personalize,
+        "ai_personalize": body.ai_personalize, "advertised_url": body.advertised_url,
         "status": "draft", "sent_count": 0, "failed_count": 0, "created_at": now,
     }
     db.table("urap_campaigns").insert(row).execute()
@@ -1425,6 +1427,8 @@ async def generate_templates(body: GenerateTemplatesRequest, x_tenant_id: str = 
     except Exception as exc:
         print(f"[generate-templates] Error fetching list name: {exc}")
 
+    advertised_url = body.advertised_url.strip() if body.advertised_url else ""
+
     # Fallback default template
     subject = "Quick question about {{company}}"
     body_html = (
@@ -1434,25 +1438,32 @@ async def generate_templates(body: GenerateTemplatesRequest, x_tenant_id: str = 
         "<p>Are you open to a brief 10-minute call sometime this week to see if there is a mutual fit?</p>\n"
         "<p>Best,</p>"
     )
+    if advertised_url:
+        body_html = body_html.replace(
+            "<p>Best,</p>",
+            f'<p>Learn more: <a href="{{{{company_link}}}}">{{{{company_link}}}}</a></p>\n<p>Best,</p>'
+        )
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if api_key:
         GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        prompt = f"""You are an expert B2B sales copywriter. Write a highly personalized cold outreach email template designed for contacts on a list named: "{list_name}".
+        url_context = f"\nThe email is promoting this URL: {advertised_url} — use `{{{{company_link}}}}` wherever the link should appear." if advertised_url else ""
+        prompt = f"""You are an expert B2B sales copywriter. Write a highly personalized cold outreach email template designed for contacts on a list named: "{list_name}".{url_context}
 
 The template MUST use placeholders that will be replaced dynamically later. Available placeholders are:
-- `{{name}}` (Full Name)
-- `{{first_name}}` (First Name)
-- `{{company}}` (Company Name)
-- `{{title}}` (Job Title)
-- `{{personalized_opener}}` (Personalized AI opening sentence generated for the lead)
+- `{{{{name}}}}` (Full Name)
+- `{{{{first_name}}}}` (First Name)
+- `{{{{company}}}}` (Company Name)
+- `{{{{title}}}}` (Job Title)
+- `{{{{personalized_opener}}}}` (Personalized AI opening sentence generated for the lead)
+- `{{{{company_link}}}}` (URL of the product or service being advertised — use as a hyperlink in the body)
 
 Rules for copy:
-- Subject: 6–8 words, no emojis, curiosity-driven, no "quick" or "just" (can use placeholders, e.g. "Question about {{company}}")
+- Subject: 6–8 words, no emojis, curiosity-driven, no "quick" or "just" (can use placeholders, e.g. "Question about {{{{company}}}}")
 - Body: 2 to 3 short paragraphs, under 150 words total
 - Tone: direct, peer-to-peer, professional, no hype
-- First paragraph MUST start with, or naturally integrate, `{{personalized_opener}}`
-- Single clear CTA: propose a 15-minute call this week
+- First paragraph MUST start with, or naturally integrate, `{{{{personalized_opener}}}}`
+- Single clear CTA: propose a 15-minute call this week{(' Include a hyperlinked reference to {{{{company_link}}}} naturally in the email.' if advertised_url else '')}
 
 Return valid JSON only: {{"subject": "...", "body_html": "<p>...</p><p>...</p><p>...</p>"}}"""
         try:

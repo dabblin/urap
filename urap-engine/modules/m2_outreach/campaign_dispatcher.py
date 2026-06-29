@@ -2,7 +2,7 @@
 
 Batch-sends a campaign to all contacts in a saved list.
 If ai_personalize=True, calls Claude Haiku to write a custom opening sentence per lead.
-Merge vars: {{name}}, {{first_name}}, {{company}}, {{title}}, {{personalized_opener}}
+Merge vars: {{name}}, {{first_name}}, {{company}}, {{title}}, {{personalized_opener}}, {{company_link}}
 """
 import os
 import asyncio
@@ -16,7 +16,7 @@ HAIKU_MODEL = "claude-haiku-4-5-20251001"
 _OPENER_BATCH = 10   # parallel Haiku calls per batch
 
 
-def _render(template: str, lead: dict, opener: str = "") -> str:
+def _render(template: str, lead: dict, opener: str = "", company_link: str = "") -> str:
     first = (lead.get("name") or "").split()[0] if lead.get("name") else ""
     out = template
     out = out.replace("{{name}}", lead.get("name") or "")
@@ -24,6 +24,7 @@ def _render(template: str, lead: dict, opener: str = "") -> str:
     out = out.replace("{{company}}", lead.get("company") or "")
     out = out.replace("{{title}}", lead.get("title") or "")
     out = out.replace("{{personalized_opener}}", opener)
+    out = out.replace("{{company_link}}", company_link)
     return out
 
 
@@ -81,6 +82,7 @@ async def dispatch(
     body_tpl      = campaign.get("body_template", "")
     from_email    = campaign.get("from_email", "")
     from_name     = campaign.get("from_name", "") or ""
+    company_link  = campaign.get("advertised_url", "") or ""
 
     # ── 1. Generate personalized openers in parallel batches ─────────────────
     openers: list[str] = [""] * len(contacts)
@@ -106,8 +108,8 @@ async def dispatch(
             continue
 
         opener    = openers[idx]
-        subject   = _render(subject_tpl, contact, opener)
-        body_html = _render(body_tpl, contact, opener)
+        subject   = _render(subject_tpl, contact, opener, company_link)
+        body_html = _render(body_tpl, contact, opener, company_link)
         lead_id   = contact.get("lead_id") or str(uuid.uuid4())
 
         result = await email_svc.send_single(
@@ -170,6 +172,7 @@ async def dispatch_stream(
     body_tpl      = campaign.get("body_template", "")
     from_email    = campaign.get("from_email", "")
     from_name     = campaign.get("from_name", "") or ""
+    company_link  = campaign.get("advertised_url", "") or ""
 
     yield json.dumps({"event": "start", "total": len(contacts)}) + "\n"
 
@@ -203,8 +206,8 @@ async def dispatch_stream(
         yield json.dumps({"event": "sending", "email": email, "name": name}) + "\n"
 
         opener    = openers[idx]
-        subject   = _render(subject_tpl, contact, opener)
-        body_html = _render(body_tpl, contact, opener)
+        subject   = _render(subject_tpl, contact, opener, company_link)
+        body_html = _render(body_tpl, contact, opener, company_link)
         lead_id   = contact.get("lead_id") or str(uuid.uuid4())
 
         result = await email_svc.send_single(

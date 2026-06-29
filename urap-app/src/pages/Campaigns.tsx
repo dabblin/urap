@@ -47,6 +47,7 @@ interface FormState {
   subject_template: string;
   body_template: string;
   ai_personalize: boolean;
+  advertised_url: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -57,9 +58,10 @@ const EMPTY_FORM: FormState = {
   subject_template: '',
   body_template: '',
   ai_personalize: false,
+  advertised_url: '',
 };
 
-const MERGE_HINT = '{{name}}  {{first_name}}  {{company}}  {{title}}  {{personalized_opener}}';
+const MERGE_HINT = '{{name}}  {{first_name}}  {{company}}  {{title}}  {{personalized_opener}}  {{company_link}}';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -153,7 +155,7 @@ export function Campaigns() {
       const res = await fetch(`${ENGINE}/campaigns/generate-templates`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ list_id: form.list_id }),
+        body: JSON.stringify({ list_id: form.list_id, advertised_url: form.advertised_url }),
       });
       if (!res.ok) throw new Error('Failed to generate template');
       const data = await res.json();
@@ -183,7 +185,7 @@ export function Campaigns() {
           name: form.name, list_id: form.list_id,
           from_email: form.from_email, from_name: form.from_name,
           subject_template: form.subject_template, body_template: form.body_template,
-          ai_personalize: form.ai_personalize,
+          ai_personalize: form.ai_personalize, advertised_url: form.advertised_url,
         }),
       });
       const campaign: Campaign = await createRes.json();
@@ -466,6 +468,19 @@ export function Campaigns() {
                 value={form.subject_template}
                 onChange={e => setField('subject_template', e.target.value)}
               />
+            </div>
+
+            {/* Advertised URL */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">Advertised URL</label>
+              <input
+                type="url"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                placeholder="https://yourproduct.com/offer"
+                value={form.advertised_url}
+                onChange={e => setField('advertised_url', e.target.value)}
+              />
+              <p className="text-[11px] text-gray-600 mt-1">Use <code className="text-indigo-400">{'{{company_link}}'}</code> in your template to insert this link.</p>
             </div>
 
             {/* Body */}
