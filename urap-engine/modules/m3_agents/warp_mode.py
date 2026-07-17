@@ -179,11 +179,11 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
         first = name.split()[0] if name else "there"
         company = lead.get("company", "your company")
         value_prop = icp.get("value_prop", "AI-powered revenue acceleration")
-        subject = f"Revenue acceleration for {company}"
+        subject = f"Quick question about {company}"
         body_html = (
             f"<p>Hi {first},</p>"
-            f"<p>I noticed {company} is scaling its revenue team — "
-            f"we help teams like yours with {value_prop}.</p>"
+            f"<p>I came across {company} and wanted to reach out — "
+            f"we help businesses like yours with {value_prop}.</p>"
             f"<p>Worth a 15-minute call this week to see if it's relevant?</p>"
         )
         return (subject, body_html)

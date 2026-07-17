@@ -19,3 +19,19 @@ create table if not exists urap_autopilot_configs (
 );
 
 create index if not exists idx_autopilot_configs_tenant on urap_autopilot_configs(tenant_id);
+
+-- urap_warp_jobs was also never created (Sprint 4 code references it; inserts fail
+-- silently). Needed for Warp job history AND the /autopilot/sends contact-name join.
+create table if not exists urap_warp_jobs (
+  id               uuid primary key,
+  tenant_id        text not null,
+  icp_label        text not null default '',
+  icp              jsonb not null default '{}'::jsonb,
+  leads_found      int  not null default 0,
+  sequences_queued int  not null default 0,
+  generated        jsonb not null default '[]'::jsonb,
+  status           text not null default 'complete',
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists idx_warp_jobs_tenant on urap_warp_jobs(tenant_id, created_at desc);

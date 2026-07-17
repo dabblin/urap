@@ -957,19 +957,24 @@ async def autopilot_sends(x_tenant_id: str = Header(...), since: str = "", limit
 
     contact_map: dict[str, dict] = {}
     if sends:
-        jobs = (
-            db.table("urap_warp_jobs")
-            .select("generated")
-            .eq("tenant_id", x_tenant_id)
-            .order("created_at", desc=True)
-            .limit(60)
-            .execute()
-        )
-        for job in jobs.data or []:
-            for g in job.get("generated") or []:
-                email = g.get("email")
-                if email and email not in contact_map:
-                    contact_map[email] = g
+        # Best-effort join — urap_warp_jobs may not exist yet
+        # (see supabase/migrations/20260717_autopilot_configs.sql)
+        try:
+            jobs = (
+                db.table("urap_warp_jobs")
+                .select("generated")
+                .eq("tenant_id", x_tenant_id)
+                .order("created_at", desc=True)
+                .limit(60)
+                .execute()
+            )
+            for job in jobs.data or []:
+                for g in job.get("generated") or []:
+                    email = g.get("email")
+                    if email and email not in contact_map:
+                        contact_map[email] = g
+        except Exception:
+            pass
 
     return {
         "sends": [
