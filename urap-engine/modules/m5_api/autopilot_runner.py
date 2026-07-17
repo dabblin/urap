@@ -28,6 +28,9 @@ class AutopilotRunResult:
     paused: bool
     pause_reason: str
     error: str = ""
+    emails_sent: int = 0
+    emails_failed: int = 0
+    campaign_id: str = ""
 
 
 class AutopilotRunner:
@@ -84,7 +87,12 @@ class AutopilotRunner:
             return {"success": False, "error": str(exc)}
 
     def get_config(self, tenant_id: str) -> dict | None:
-        """Return autopilot config for a tenant."""
+        """Return autopilot config for a tenant.
+
+        Falls back to the AUTOPILOT_CONFIG_B64 env var (base64-encoded JSON,
+        same shape as a urap_autopilot_configs row) while that table does not
+        exist in Supabase — see supabase/migrations/20260717_autopilot_configs.sql.
+        """
         try:
             result = (
                 _db().table("urap_autopilot_configs")
@@ -93,10 +101,25 @@ class AutopilotRunner:
                 .limit(1)
                 .execute()
             )
-            return result.data[0] if result.data else None
+            if result.data:
+                return result.data[0]
         except Exception as exc:
-            logger.error("[autopilot] get_config error: %s", exc)
-            return None
+            logger.warning("[autopilot] config table unavailable, trying env fallback: %s", exc)
+        raw = os.getenv("AUTOPILOT_CONFIG_B64", "") or os.getenv("AUTOPILOT_CONFIG", "")
+        if raw:
+            try:
+                import base64
+                import json
+                try:
+                    decoded = base64.b64decode(raw).decode()
+                except Exception:
+                    decoded = raw
+                cfg = json.loads(decoded)
+                if cfg.get("tenant_id", tenant_id) == tenant_id:
+                    return cfg
+            except Exception as exc:
+                logger.error("[autopilot] env config parse error: %s", exc)
+        return None
 
     async def run(self, tenant_id: str) -> AutopilotRunResult:
         """
@@ -148,23 +171,56 @@ class AutopilotRunner:
 
         icp["limit"] = min(icp.get("limit", 25), remaining)
 
-        # Run Warp Mode
+        # Source fresh leads by keyword ICP (Apollo discovery), then dedup
+        leads: list[dict] = []
+        skipped_deduped = 0
+        if icp.get("keywords"):
+            try:
+                leads = await self._source_leads(icp)
+            except Exception as exc:
+                logger.error("[autopilot] lead sourcing error: %s", exc)
+            leads, skipped_deduped = self._dedup_leads(tenant_id, leads)
+            if not leads:
+                reason = "No new leads after dedup" if skipped_deduped else ""
+                return AutopilotRunResult(
+                    tenant_id=tenant_id, job_id="", leads_found=0,
+                    sequences_queued=0, skipped_deduped=skipped_deduped,
+                    paused=False, pause_reason=reason,
+                    error="" if skipped_deduped else "No leads found for ICP keywords",
+                )
+
+        # Run Warp Mode (copy generation; enrichment fallback for domain ICPs)
         try:
             from modules.m3_agents.warp_mode import WarpModeAgent
             warp = WarpModeAgent()
-            result = await warp.run_job(icp=icp, tenant_id=tenant_id, dedup=True)
+            result = await warp.run_job(icp=icp, tenant_id=tenant_id, leads=leads or None)
         except Exception as exc:
             logger.error("[autopilot] warp run error: %s", exc)
             return AutopilotRunResult(
                 tenant_id=tenant_id, job_id="", leads_found=0,
-                sequences_queued=0, skipped_deduped=0,
+                sequences_queued=0, skipped_deduped=skipped_deduped,
                 paused=False, pause_reason="", error=str(exc),
             )
+
+        # Send the generated emails and record per-send rows
+        emails_sent = emails_failed = 0
+        campaign_id = ""
+        generated = getattr(result, "generated", None) or []
+        if generated:
+            try:
+                emails_sent, emails_failed, campaign_id = await self._send_generated(
+                    tenant_id=tenant_id, icp=icp, generated=generated,
+                )
+            except Exception as exc:
+                logger.error("[autopilot] send error: %s", exc)
 
         run_stats = {
             "leads_found": result.leads_found,
             "sequences_queued": result.sequences_queued,
-            "skipped_deduped": getattr(result, "skipped_deduped", 0),
+            "skipped_deduped": skipped_deduped,
+            "emails_sent": emails_sent,
+            "emails_failed": emails_failed,
+            "campaign_id": campaign_id,
             "paused": False,
             "pause_reason": "",
         }
@@ -202,12 +258,165 @@ class AutopilotRunner:
             job_id=result.job_id,
             leads_found=result.leads_found,
             sequences_queued=result.sequences_queued,
-            skipped_deduped=getattr(result, "skipped_deduped", 0),
+            skipped_deduped=skipped_deduped,
             paused=False,
             pause_reason="",
+            emails_sent=emails_sent,
+            emails_failed=emails_failed,
+            campaign_id=campaign_id,
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    async def _source_leads(self, icp: dict) -> list[dict]:
+        """Keyword ICP → Apollo company discovery → contact discovery → lead dicts."""
+        import uuid as _uuid
+        from modules.m1_intelligence.company_search import search_companies
+        from modules.m1_intelligence.contact_discover import discover_contacts_batch
+
+        limit = int(icp.get("limit", 25))
+        companies = await search_companies(
+            keywords=icp.get("keywords", ""),
+            location=icp.get("location", ""),
+            industry=icp.get("industry", ""),
+            limit=min(limit * 2, 50),  # over-fetch: not every company yields an email
+        )
+        if not companies:
+            return []
+        batch = [
+            {
+                "index":   i,
+                "name":    c.get("name", ""),
+                "domain":  c.get("domain", ""),
+                "website": c.get("website", ""),
+                "phone":   c.get("phone", ""),
+                "yelp_id": c.get("yelp_id", ""),
+            }
+            for i, c in enumerate(companies)
+        ]
+        enriched = await discover_contacts_batch(batch, max_parallel=5)
+        leads = []
+        for r in enriched:
+            email = (r.get("email") or "").strip()
+            if not email:
+                continue
+            company = companies[r["index"]]
+            name = f"{r.get('first_name', '')} {r.get('last_name', '')}".strip()
+            leads.append({
+                "lead_id": r.get("lead_id") or str(_uuid.uuid4()),
+                "name":    name or company.get("name", ""),
+                "email":   email,
+                "title":   r.get("title", ""),
+                "company": company.get("name", ""),
+            })
+            if len(leads) >= limit:
+                break
+        return leads
+
+    def _dedup_leads(self, tenant_id: str, leads: list[dict]) -> tuple[list[dict], int]:
+        """Drop leads already emailed in the trailing 90 days or unsubscribed."""
+        if not leads:
+            return [], 0
+        from datetime import timedelta
+        emails = [l["email"] for l in leads]
+        blocked: set[str] = set()
+        try:
+            since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+            prior = (
+                _db().table("urap_campaign_sends")
+                .select("to_email")
+                .eq("tenant_id", tenant_id)
+                .in_("to_email", emails)
+                .gte("sent_at", since)
+                .execute()
+            )
+            blocked |= {r["to_email"] for r in (prior.data or [])}
+        except Exception as exc:
+            logger.warning("[autopilot] send-history dedup check failed: %s", exc)
+        try:
+            unsubs = (
+                _db().table("urap_contacts")
+                .select("email")
+                .eq("tenant_id", tenant_id)
+                .eq("global_status", "unsubscribe")
+                .in_("email", emails)
+                .execute()
+            )
+            blocked |= {r["email"] for r in (unsubs.data or [])}
+        except Exception as exc:
+            logger.warning("[autopilot] unsubscribe dedup check failed: %s", exc)
+        fresh = [l for l in leads if l["email"] not in blocked]
+        return fresh, len(leads) - len(fresh)
+
+    async def _send_generated(self, tenant_id: str, icp: dict, generated: list[dict]) -> tuple[int, int, str]:
+        """Send warp-generated copy via the provider waterfall; record a real
+        campaign row + per-send rows (urap_campaign_sends FK requires a campaign uuid)."""
+        import uuid as _uuid
+        from modules.m2_outreach.email_sequence import EmailSequenceService
+
+        from_email = icp.get("from_email") or os.getenv("OUTREACH_FROM_EMAIL", "djdabblin@gmail.com")
+        from_name = icp.get("from_name") or os.getenv("OUTREACH_FROM_NAME", "Dennis Day II — Dabblin Cloud")
+        today = datetime.now(timezone.utc).date().isoformat()
+        label = icp.get("icp_label", "ICP")
+
+        campaign_row = {
+            "id": str(_uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "name": f"Autopilot — {label} — {today}",
+            "list_id": None,
+            "from_email": from_email,
+            "from_name": from_name,
+            "subject_template": "(autopilot: per-lead AI copy)",
+            "body_template": "(autopilot: per-lead AI copy)",
+            "ai_personalize": True,
+            "status": "sending",
+        }
+        _db().table("urap_campaigns").insert(campaign_row).execute()
+        campaign_id = campaign_row["id"]
+
+        svc = EmailSequenceService()
+        sent = failed = 0
+        send_records: list[dict] = []
+        for g in generated:
+            email = (g.get("email") or "").strip()
+            if not email:
+                continue
+            result = await svc.send_single(
+                lead_id=g.get("lead_id") or str(_uuid.uuid4()),
+                to_email=email,
+                to_name=g.get("name") or "",
+                from_email=from_email,
+                from_name=from_name,
+                subject=g.get("subject") or f"Quick question for {g.get('company', 'you')}",
+                body_html=g.get("body_html") or "",
+                require_consent=False,
+                tag=f"campaign:{campaign_id}",
+            )
+            send_records.append({
+                "id":          str(_uuid.uuid4()),
+                "campaign_id": campaign_id,
+                "tenant_id":   tenant_id,
+                "lead_id":     g.get("lead_id") or "",
+                "to_email":    email,
+                "subject":     g.get("subject") or "",
+                "status":      "sent" if result.success else "failed",
+                "provider":    result.provider,
+                "error":       result.error,
+            })
+            if result.success:
+                sent += 1
+            else:
+                failed += 1
+
+        try:
+            if send_records:
+                _db().table("urap_campaign_sends").insert(send_records).execute()
+            _db().table("urap_campaigns").update({
+                "status": "sent", "sent_count": sent, "failed_count": failed,
+            }).eq("id", campaign_id).execute()
+        except Exception as exc:
+            logger.error("[autopilot] persist send records failed: %s", exc)
+        return sent, failed, campaign_id
 
     def _get_routable_leads(self, tenant_id: str, min_score: int, limit: int) -> list[dict]:
         """Pull recently enriched contacts above min_score for route-after-warp dispatch."""
@@ -247,18 +456,19 @@ class AutopilotRunner:
             return 0.0
 
     def _sent_today(self, tenant_id: str) -> int:
-        """Count sequences queued today for throttle check."""
+        """Count emails actually sent today by autopilot campaigns (throttle check)."""
         try:
             from datetime import date
             today = date.today().isoformat()
             result = (
-                _db().table("urap_warp_jobs")
-                .select("sequences_queued")
+                _db().table("urap_campaigns")
+                .select("sent_count")
                 .eq("tenant_id", tenant_id)
+                .like("name", "Autopilot —%")
                 .gte("created_at", today)
                 .execute()
             )
-            return sum(r.get("sequences_queued", 0) for r in (result.data or []))
+            return sum(r.get("sent_count", 0) for r in (result.data or []))
         except Exception:
             return 0
 

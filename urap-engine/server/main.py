@@ -917,6 +917,78 @@ async def autopilot_run(x_tenant_id: str = Header(...)):
         "paused": result.paused,
         "pause_reason": result.pause_reason,
         "error": result.error,
+        "emails_sent": result.emails_sent,
+        "emails_failed": result.emails_failed,
+        "campaign_id": result.campaign_id,
+    }
+
+
+@app.get("/autopilot/sends", dependencies=[Depends(require_api_key)])
+async def autopilot_sends(x_tenant_id: str = Header(...), since: str = "", limit: int = 500):
+    """Per-send report rows for autopilot campaigns (newest first).
+    since: ISO timestamp filter on sent_at. Contact name/company/title are
+    joined from the warp jobs that generated the copy."""
+    from supabase import create_client
+    db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+
+    camps = (
+        db.table("urap_campaigns")
+        .select("id, name, created_at")
+        .eq("tenant_id", x_tenant_id)
+        .like("name", "Autopilot —%")
+        .order("created_at", desc=True)
+        .limit(90)
+        .execute()
+    )
+    camp_map = {c["id"]: c["name"] for c in (camps.data or [])}
+    if not camp_map:
+        return {"sends": []}
+
+    q = (
+        db.table("urap_campaign_sends")
+        .select("id, campaign_id, lead_id, to_email, subject, status, provider, error, sent_at")
+        .in_("campaign_id", list(camp_map.keys()))
+        .order("sent_at", desc=True)
+        .limit(max(1, min(limit, 1000)))
+    )
+    if since:
+        q = q.gte("sent_at", since)
+    sends = q.execute().data or []
+
+    contact_map: dict[str, dict] = {}
+    if sends:
+        jobs = (
+            db.table("urap_warp_jobs")
+            .select("generated")
+            .eq("tenant_id", x_tenant_id)
+            .order("created_at", desc=True)
+            .limit(60)
+            .execute()
+        )
+        for job in jobs.data or []:
+            for g in job.get("generated") or []:
+                email = g.get("email")
+                if email and email not in contact_map:
+                    contact_map[email] = g
+
+    return {
+        "sends": [
+            {
+                "id":            s["id"],
+                "campaign_id":   s["campaign_id"],
+                "campaign_name": camp_map.get(s["campaign_id"], ""),
+                "sent_at":       s.get("sent_at", ""),
+                "name":          contact_map.get(s["to_email"], {}).get("name", ""),
+                "company":       contact_map.get(s["to_email"], {}).get("company", ""),
+                "title":         contact_map.get(s["to_email"], {}).get("title", ""),
+                "to_email":      s["to_email"],
+                "subject":       s.get("subject", ""),
+                "status":        s.get("status", ""),
+                "provider":      s.get("provider", ""),
+                "error":         s.get("error", ""),
+            }
+            for s in sends
+        ]
     }
 
 

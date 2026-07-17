@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ENGINE, TENANT } from '../lib/config.js';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 import type { ContactResult } from '../types.js';
 
-const API_KEY = '';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 

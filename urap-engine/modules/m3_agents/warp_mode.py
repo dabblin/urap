@@ -212,19 +212,20 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
 
     # ── Job runner ────────────────────────────────────────────────────────────
 
-    async def run_job(self, icp: dict, tenant_id: str) -> WarpJobResult:
+    async def run_job(self, icp: dict, tenant_id: str, leads: list[dict] | None = None) -> WarpJobResult:
         """Run a full Warp Mode job: enrich → generate copy → store → alert.
 
         icp keys: title, domain, industry, value_prop, icp_label, limit (default 10)
+        leads: pre-sourced leads (dicts with lead_id/name/email/title/company) — skips enrichment
         """
         job_id = str(uuid.uuid4())
         icp_label = icp.get("icp_label", f"{icp.get('title', 'ICP')} @ {icp.get('domain', 'domain')}")
         limit = min(int(icp.get("limit", 10)), 25)
 
-        # Step 1 — enrich leads
-        leads: list[dict] = []
+        # Step 1 — enrich leads (skipped when caller pre-sourced them)
+        leads = list(leads or [])[:limit]
         domain = icp.get("domain", "")
-        if domain:
+        if not leads and domain:
             try:
                 leads = await self._enrichment.bulk_enrich_domain(
                     tenant_id=tenant_id,

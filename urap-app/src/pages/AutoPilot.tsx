@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { ENGINE, TENANT } from '../lib/config.js';
-const API_KEY = '';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 
 interface AutopilotConfig {
   enabled: boolean;
@@ -35,6 +34,23 @@ interface RunResult {
   paused: boolean;
   pause_reason: string;
   error: string;
+  emails_sent?: number;
+  emails_failed?: number;
+  campaign_id?: string;
+}
+
+interface AutopilotSend {
+  id: string;
+  campaign_name: string;
+  sent_at: string;
+  name: string;
+  company: string;
+  title: string;
+  to_email: string;
+  subject: string;
+  status: string;
+  provider: string;
+  error: string;
 }
 
 const DEFAULT_ICP = {
@@ -66,8 +82,17 @@ export function AutoPilot() {
   const [toggling, setToggling] = useState(false);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
+  const [sends, setSends] = useState<AutopilotSend[]>([]);
 
-  useEffect(() => { fetchConfig(); fetchMarketplaces(); }, []);
+  useEffect(() => { fetchConfig(); fetchMarketplaces(); fetchSends(); }, []);
+
+  async function fetchSends() {
+    try {
+      const res = await fetch(`${ENGINE}/autopilot/sends?limit=200`, { headers: headers() });
+      const data = await res.json();
+      setSends(data.sends || []);
+    } catch {/* silent */}
+  }
 
   async function fetchConfig() {
     setLoading(true);
@@ -132,6 +157,7 @@ export function AutoPilot() {
       const data: RunResult = await res.json();
       setLastRun(data);
       await fetchConfig();
+      await fetchSends();
     } catch {/* silent */} finally {
       setRunning(false);
     }
@@ -257,7 +283,7 @@ export function AutoPilot() {
 
         <button
           onClick={handleRunNow}
-          disabled={running || !icp.domain}
+          disabled={running}
           className="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white text-sm font-medium rounded px-4 py-2 transition-colors"
         >
           {running ? '⚡ Running…' : '▶ Run Now'}
@@ -283,9 +309,10 @@ export function AutoPilot() {
             ) : lastRun.paused ? (
               <p className="text-yellow-400 text-xs">Paused: {lastRun.pause_reason}</p>
             ) : (
-              <div className="flex gap-6 text-xs">
+              <div className="flex flex-wrap gap-6 text-xs">
                 <span className="text-gray-300">Found: <span className="text-white font-medium">{lastRun.leads_found}</span></span>
-                <span className="text-gray-300">Queued: <span className="text-white font-medium">{lastRun.sequences_queued}</span></span>
+                <span className="text-gray-300">Sent: <span className="text-emerald-400 font-medium">{lastRun.emails_sent ?? 0}</span></span>
+                <span className="text-gray-300">Failed: <span className={lastRun.emails_failed ? 'text-red-400' : 'text-gray-400'}>{lastRun.emails_failed ?? 0}</span></span>
                 <span className="text-gray-300">Deduped: <span className="text-gray-400">{lastRun.skipped_deduped}</span></span>
               </div>
             )}
@@ -311,12 +338,56 @@ export function AutoPilot() {
           </div>
         )}
 
-        {/* Cloud Scheduler note */}
+        {/* Send report */}
+        <div className="rounded border border-gray-800 bg-gray-900 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Autopilot Sends</p>
+            <span className="text-xs text-gray-600">{sends.length} recent</span>
+          </div>
+          {sends.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-gray-600">
+              No autopilot sends yet — they appear here after each scheduled or manual run.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs" style={{ minWidth: '760px' }}>
+                <thead>
+                  <tr className="border-b border-gray-800 text-left text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 font-medium">Sent</th>
+                    <th className="px-4 py-2 font-medium">Contact</th>
+                    <th className="px-4 py-2 font-medium">Company</th>
+                    <th className="px-4 py-2 font-medium">Email</th>
+                    <th className="px-4 py-2 font-medium">Subject</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Provider</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/60">
+                  {sends.map(s => (
+                    <tr key={s.id} className="hover:bg-gray-800/40 transition-colors">
+                      <td className="px-4 py-2 text-gray-500 font-mono whitespace-nowrap">{s.sent_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
+                      <td className="px-4 py-2 text-white">{s.name || '—'}</td>
+                      <td className="px-4 py-2 text-gray-300">{s.company || '—'}</td>
+                      <td className="px-4 py-2 text-gray-400 font-mono">{s.to_email}</td>
+                      <td className="px-4 py-2 text-gray-400 max-w-[220px] truncate" title={s.subject}>{s.subject || '—'}</td>
+                      <td className="px-4 py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${s.status === 'sent' ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'}`} title={s.error || undefined}>
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-gray-500">{s.provider || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Schedule note */}
         <div className="rounded border border-gray-800 bg-gray-900/50 px-4 py-3 text-xs text-gray-500 space-y-1">
-          <p className="text-gray-400 font-medium">Cloud Scheduler setup</p>
-          <p>To run on schedule, create a Cloud Scheduler job targeting:</p>
-          <p className="font-mono text-gray-400 text-xs mt-1">POST {ENGINE}/autopilot/run</p>
-          <p className="mt-1">Headers: x-api-key + x-tenant-id. Cron: <span className="font-mono">0 */24 * * *</span> for daily.</p>
+          <p className="text-gray-400 font-medium">Daily schedule</p>
+          <p>Gravity Claw triggers <span className="font-mono text-gray-400">POST {ENGINE}/autopilot/run</span> every morning at 8:00 AM ET (launchd job <span className="font-mono">com.antigravity.urap-autopilot</span>).</p>
         </div>
 
         {loading && <p className="text-gray-600 text-sm">Loading config…</p>}

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { ContactResult } from '../types.js';
 
-import { ENGINE, TENANT } from '../lib/config.js';
-const API_KEY = '';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 
 interface Props {
   onSelectLead?: (lead: ContactResult | null) => void;

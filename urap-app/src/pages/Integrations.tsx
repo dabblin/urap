@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { ENGINE, TENANT } from '../lib/config.js';
-const API_KEY = '';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 
 function headers() {
   return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-tenant-id': TENANT };

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
-import { ENGINE, TENANT } from '../lib/config.js';
-const API_KEY = '';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 
 interface WarpForm {
   domain: string;
