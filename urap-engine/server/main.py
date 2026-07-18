@@ -1523,7 +1523,7 @@ async def generate_templates(body: GenerateTemplatesRequest, x_tenant_id: str = 
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if api_key:
-        GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"  # gemini-2.0-flash retired by Google
         url_context = f"\nThe email is promoting this URL: {advertised_url} — use `{{{{company_link}}}}` wherever the link should appear." if advertised_url else ""
         prompt = f"""You are an expert B2B sales copywriter. Write a highly personalized cold outreach email template designed for contacts on a list named: "{list_name}".{url_context}
 

@@ -269,15 +269,24 @@ class AutopilotRunner:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     async def _source_leads(self, icp: dict) -> list[dict]:
-        """Keyword ICP → Apollo company discovery → contact discovery → lead dicts."""
+        """Keyword ICP → Apollo company discovery → contact discovery → lead dicts.
+
+        If icp["locations"] is a list, the search metro rotates daily so the same
+        keyword keeps yielding fresh leads (dedup screens any overlap)."""
         import uuid as _uuid
         from modules.m1_intelligence.company_search import search_companies
         from modules.m1_intelligence.contact_discover import discover_contacts_batch
 
         limit = int(icp.get("limit", 25))
+        location = icp.get("location", "")
+        locations = icp.get("locations") or []
+        if locations:
+            from datetime import date
+            location = locations[date.today().toordinal() % len(locations)]
+            logger.info("[autopilot] metro rotation → %s", location)
         companies = await search_companies(
             keywords=icp.get("keywords", ""),
-            location=icp.get("location", ""),
+            location=location,
             industry=icp.get("industry", ""),
             limit=min(limit * 2, 50),  # over-fetch: not every company yields an email
         )
