@@ -386,10 +386,21 @@ class AutopilotRunner:
         svc = EmailSequenceService()
         sent = failed = 0
         send_records: list[dict] = []
+        
+        signature = f"""<br><br>
+<p style="margin:0; font-size:14px; color:#333;"><strong>Dennis Day II</strong><br>
+<span style="color:#666;">CAIO, Dabblin Cloud Technologies</span><br>
+<a href="https://dabblin.com" style="color:#6366f1;">dabblin.com</a> | 703.344.8307</p>
+"""
+        
         for g in generated:
             email = (g.get("email") or "").strip()
             if not email:
                 continue
+                
+            base_html = g.get("body_html") or ""
+            full_html = base_html + signature if base_html else signature
+            
             result = await svc.send_single(
                 lead_id=g.get("lead_id") or str(_uuid.uuid4()),
                 to_email=email,
@@ -397,7 +408,7 @@ class AutopilotRunner:
                 from_email=from_email,
                 from_name=from_name,
                 subject=g.get("subject") or f"Quick question for {g.get('company', 'you')}",
-                body_html=g.get("body_html") or "",
+                body_html=full_html,
                 require_consent=False,
                 tag=f"campaign:{campaign_id}",
             )
@@ -408,6 +419,7 @@ class AutopilotRunner:
                 "lead_id":     g.get("lead_id") or "",
                 "to_email":    email,
                 "subject":     g.get("subject") or "",
+                "body_html":   full_html,
                 "status":      "sent" if result.success else "failed",
                 "provider":    result.provider,
                 "error":       result.error,

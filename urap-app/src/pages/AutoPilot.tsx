@@ -51,6 +51,7 @@ interface AutopilotSend {
   status: string;
   provider: string;
   error: string;
+  body_html?: string;
 }
 
 const DEFAULT_ICP = {
@@ -83,6 +84,7 @@ export function AutoPilot() {
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [sends, setSends] = useState<AutopilotSend[]>([]);
+  const [selectedSend, setSelectedSend] = useState<AutopilotSend | null>(null);
 
   useEffect(() => { fetchConfig(); fetchMarketplaces(); fetchSends(); }, []);
 
@@ -358,6 +360,7 @@ export function AutoPilot() {
                     <th className="px-4 py-2 font-medium">Company</th>
                     <th className="px-4 py-2 font-medium">Email</th>
                     <th className="px-4 py-2 font-medium">Subject</th>
+                    <th className="px-4 py-2 font-medium text-center">Actions</th>
                     <th className="px-4 py-2 font-medium">Status</th>
                     <th className="px-4 py-2 font-medium">Provider</th>
                   </tr>
@@ -370,6 +373,14 @@ export function AutoPilot() {
                       <td className="px-4 py-2 text-gray-300">{s.company || '—'}</td>
                       <td className="px-4 py-2 text-gray-400 font-mono">{s.to_email}</td>
                       <td className="px-4 py-2 text-gray-400 max-w-[220px] truncate" title={s.subject}>{s.subject || '—'}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => setSelectedSend(s)}
+                          className="bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-medium rounded px-2 py-1 transition-colors"
+                        >
+                          View
+                        </button>
+                      </td>
                       <td className="px-4 py-2">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${s.status === 'sent' ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'}`} title={s.error || undefined}>
                           {s.status}
@@ -392,6 +403,35 @@ export function AutoPilot() {
 
         {loading && <p className="text-gray-600 text-sm">Loading config…</p>}
       </div>
+
+      {/* Modal for viewing email body */}
+      {selectedSend && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-gray-800 bg-gray-900 shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+              <h3 className="text-sm font-semibold text-white">Email to {selectedSend.to_email}</h3>
+              <button
+                onClick={() => setSelectedSend(null)}
+                className="rounded text-gray-400 hover:bg-gray-800 hover:text-white px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <div className="mb-4 space-y-1 rounded border border-gray-800 bg-gray-950/50 p-3 text-xs">
+                <p><span className="font-semibold text-gray-500">From:</span> URAP Engine</p>
+                <p><span className="font-semibold text-gray-500">To:</span> {selectedSend.name} &lt;{selectedSend.to_email}&gt;</p>
+                <p><span className="font-semibold text-gray-500">Subject:</span> {selectedSend.subject}</p>
+                <p><span className="font-semibold text-gray-500">Sent At:</span> {selectedSend.sent_at}</p>
+              </div>
+              <div 
+                className="rounded border border-gray-800 bg-white text-gray-900 p-4 text-sm"
+                dangerouslySetInnerHTML={{ __html: selectedSend.body_html || '<p class="text-gray-500 italic">No content available.</p>' }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

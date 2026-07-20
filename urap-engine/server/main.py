@@ -946,7 +946,7 @@ async def autopilot_sends(x_tenant_id: str = Header(...), since: str = "", limit
 
     q = (
         db.table("urap_campaign_sends")
-        .select("id, campaign_id, lead_id, to_email, subject, status, provider, error, sent_at")
+        .select("id, campaign_id, lead_id, to_email, subject, body_html, status, provider, error, sent_at")
         .in_("campaign_id", list(camp_map.keys()))
         .order("sent_at", desc=True)
         .limit(max(1, min(limit, 1000)))
@@ -988,6 +988,7 @@ async def autopilot_sends(x_tenant_id: str = Header(...), since: str = "", limit
                 "title":         contact_map.get(s["to_email"], {}).get("title", ""),
                 "to_email":      s["to_email"],
                 "subject":       s.get("subject", ""),
+                "body_html":     s.get("body_html", ""),
                 "status":        s.get("status", ""),
                 "provider":      s.get("provider", ""),
                 "error":         s.get("error", ""),
