@@ -169,24 +169,41 @@ class AutopilotRunner:
                 paused=False, pause_reason=reason,
             )
 
-        icp["limit"] = min(icp.get("limit", 25), remaining)
+        sectors = icp.get("sectors") or []
+        if not sectors and icp.get("keywords"):
+            sectors = [icp.get("keywords")]
 
         # Source fresh leads by keyword ICP (Apollo discovery), then dedup
         leads: list[dict] = []
         skipped_deduped = 0
-        if icp.get("keywords"):
-            try:
-                leads = await self._source_leads(icp)
-            except Exception as exc:
-                logger.error("[autopilot] lead sourcing error: %s", exc)
-            leads, skipped_deduped = self._dedup_leads(tenant_id, leads)
+        
+        if sectors:
+            sector_limit = max(1, remaining // len(sectors))
+            icp["limit"] = min(icp.get("limit", 25), sector_limit)
+            
+            all_sourced_leads = []
+            for sector in sectors:
+                if not sector: continue
+                sector_icp = icp.copy()
+                sector_icp["keywords"] = sector
+                try:
+                    sector_leads = await self._source_leads(sector_icp)
+                    all_sourced_leads.extend(sector_leads)
+                except Exception as exc:
+                    logger.error("[autopilot] lead sourcing error for %s: %s", sector, exc)
+                    
+            leads, skipped_deduped = self._dedup_leads(tenant_id, all_sourced_leads)
+            
+            # Enforce total limit just in case
+            leads = leads[:remaining]
+            
             if not leads:
                 reason = "No new leads after dedup" if skipped_deduped else ""
                 return AutopilotRunResult(
                     tenant_id=tenant_id, job_id="", leads_found=0,
                     sequences_queued=0, skipped_deduped=skipped_deduped,
                     paused=False, pause_reason=reason,
-                    error="" if skipped_deduped else "No leads found for ICP keywords",
+                    error="" if skipped_deduped else "No leads found for ICP sectors/keywords",
                 )
 
         # Run Warp Mode (copy generation; enrichment fallback for domain ICPs)

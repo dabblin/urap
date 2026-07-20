@@ -202,6 +202,11 @@ export function AutoPilot() {
         {/* ICP config */}
         <div className="rounded border border-gray-800 bg-gray-900 px-4 py-3 space-y-2">
           <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">ICP Config</p>
+          {(icp as any).sectors?.length > 0 && (
+             <div className="text-xs text-emerald-400 mb-2 font-medium">
+               Multi-Sector Outreach Active: {(icp as any).sectors.join(', ')}
+             </div>
+          )}
           <input
             className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
             placeholder="Domain *  (e.g. stripe.com)"
