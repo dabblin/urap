@@ -1,8 +1,10 @@
 """Autopilot runner — cron-triggered Warp Mode scheduler (Sprint 6 full implementation)."""
+import asyncio
 import os
 import logging
+import math
 from datetime import datetime, timezone
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class AutopilotRunResult:
     emails_sent: int = 0
     emails_failed: int = 0
     campaign_id: str = ""
+    sector_stats: dict[str, int] = field(default_factory=dict)
 
 
 class AutopilotRunner:
@@ -169,34 +172,67 @@ class AutopilotRunner:
                 paused=False, pause_reason=reason,
             )
 
-        sectors = icp.get("sectors") or []
+        sectors = [sector for sector in (icp.get("sectors") or []) if sector]
         if not sectors and icp.get("keywords"):
-            sectors = [icp.get("keywords")]
+            sectors = [icp["keywords"]]
 
         # Source fresh leads by keyword ICP (Apollo discovery), then dedup
         leads: list[dict] = []
         skipped_deduped = 0
-        
+        sector_stats: dict[str, int] = {sector: 0 for sector in sectors}
+
         if sectors:
-            sector_limit = max(1, remaining // len(sectors))
-            icp["limit"] = min(icp.get("limit", 25), sector_limit)
-            
-            all_sourced_leads = []
-            for sector in sectors:
-                if not sector: continue
-                sector_icp = icp.copy()
-                sector_icp["keywords"] = sector
+            valid_sectors = sectors
+            configured_sector_limit = max(1, int(icp.get("limit", 25)))
+            sector_limit = min(
+                configured_sector_limit,
+                max(1, math.ceil(remaining / len(valid_sectors))),
+            )
+            source_semaphore = asyncio.Semaphore(3)
+
+            async def source_sector(sector: str) -> tuple[str, list[dict]]:
+                sector_icp = {**icp, "keywords": sector, "limit": sector_limit}
                 try:
-                    sector_leads = await self._source_leads(sector_icp)
-                    all_sourced_leads.extend(sector_leads)
+                    async with source_semaphore:
+                        return sector, await self._source_leads(sector_icp)
                 except Exception as exc:
                     logger.error("[autopilot] lead sourcing error for %s: %s", sector, exc)
-                    
-            leads, skipped_deduped = self._dedup_leads(tenant_id, all_sourced_leads)
-            
-            # Enforce total limit just in case
-            leads = leads[:remaining]
-            
+                    return sector, []
+
+            sourced = await asyncio.gather(*(source_sector(sector) for sector in valid_sectors))
+            all_sourced_leads = [
+                {**lead, "_autopilot_sector": sector}
+                for sector, sector_leads in sourced
+                for lead in sector_leads
+            ]
+            deduped_leads, skipped_deduped = self._dedup_leads(tenant_id, all_sourced_leads)
+
+            # Round-robin the deduped sector queues so one high-yield sector cannot
+            # consume the entire daily budget before the other sectors are included.
+            sector_queues = {
+                sector: [
+                    lead for lead in deduped_leads
+                    if lead.get("_autopilot_sector") == sector
+                ]
+                for sector in valid_sectors
+            }
+            sector_offsets = {sector: 0 for sector in valid_sectors}
+            while len(leads) < remaining:
+                added = False
+                for sector in valid_sectors:
+                    offset = sector_offsets[sector]
+                    queue = sector_queues[sector]
+                    if offset >= len(queue):
+                        continue
+                    leads.append(queue[offset])
+                    sector_offsets[sector] = offset + 1
+                    sector_stats[sector] += 1
+                    added = True
+                    if len(leads) >= remaining:
+                        break
+                if not added:
+                    break
+
             if not leads:
                 reason = "No new leads after dedup" if skipped_deduped else ""
                 return AutopilotRunResult(
@@ -204,13 +240,15 @@ class AutopilotRunner:
                     sequences_queued=0, skipped_deduped=skipped_deduped,
                     paused=False, pause_reason=reason,
                     error="" if skipped_deduped else "No leads found for ICP sectors/keywords",
+                    sector_stats=sector_stats,
                 )
 
         # Run Warp Mode (copy generation; enrichment fallback for domain ICPs)
         try:
             from modules.m3_agents.warp_mode import WarpModeAgent
             warp = WarpModeAgent()
-            result = await warp.run_job(icp=icp, tenant_id=tenant_id, leads=leads or None)
+            warp_icp = {**icp, "limit": min(len(leads), remaining)} if leads else icp
+            result = await warp.run_job(icp=warp_icp, tenant_id=tenant_id, leads=leads or None)
         except Exception as exc:
             logger.error("[autopilot] warp run error: %s", exc)
             return AutopilotRunResult(
@@ -238,6 +276,7 @@ class AutopilotRunner:
             "emails_sent": emails_sent,
             "emails_failed": emails_failed,
             "campaign_id": campaign_id,
+            "sector_stats": sector_stats,
             "paused": False,
             "pause_reason": "",
         }
@@ -281,6 +320,7 @@ class AutopilotRunner:
             emails_sent=emails_sent,
             emails_failed=emails_failed,
             campaign_id=campaign_id,
+            sector_stats=sector_stats,
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────

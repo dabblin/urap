@@ -11,6 +11,7 @@ Required env vars:
   GEMINI_API_KEY     — Google AI Studio key (free tier available)
   ANTHROPIC_API_KEY  — Anthropic API key (review pass; falls through if missing)
 """
+import asyncio
 import json
 import os
 import re
@@ -30,6 +31,8 @@ from tier3.telegram.client import notify_warp_job_done
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"  # gemini-2.0-flash retired by Google
 CLAUDE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL = "claude-sonnet-4-6"
+MAX_WARP_LEADS = 120
+COPY_CONCURRENCY = 5
 
 
 @dataclass
@@ -220,7 +223,7 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
         """
         job_id = str(uuid.uuid4())
         icp_label = icp.get("icp_label", f"{icp.get('title', 'ICP')} @ {icp.get('domain', 'domain')}")
-        limit = min(int(icp.get("limit", 10)), 25)
+        limit = min(max(1, int(icp.get("limit", 10))), MAX_WARP_LEADS)
 
         # Step 1 — enrich leads (skipped when caller pre-sourced them)
         leads = list(leads or [])[:limit]
@@ -245,10 +248,13 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
             )
 
         # Step 2 — generate copy for each lead
-        warp_leads: list[WarpLead] = []
-        for lead in leads:
-            wl = await self._generate_copy_for_lead(lead, icp)
-            warp_leads.append(wl)
+        copy_semaphore = asyncio.Semaphore(COPY_CONCURRENCY)
+
+        async def generate(lead: dict) -> WarpLead:
+            async with copy_semaphore:
+                return await self._generate_copy_for_lead(lead, icp)
+
+        warp_leads = await asyncio.gather(*(generate(lead) for lead in leads))
 
         sequences_queued = sum(1 for wl in warp_leads if wl.copy_status != "error")
 

@@ -6,6 +6,7 @@ interface AutopilotConfig {
   enabled: boolean;
   icp: Record<string, unknown>;
   schedule_hours: number;
+  daily_send_limit?: number;
   route_after_warp?: boolean;
   route_marketplace_id?: string;
   route_min_score?: number;
@@ -14,6 +15,7 @@ interface AutopilotConfig {
     leads_found: number;
     sequences_queued: number;
     skipped_deduped: number;
+    sector_stats?: Record<string, number>;
     paused: boolean;
     pause_reason: string;
   };
@@ -37,6 +39,7 @@ interface RunResult {
   emails_sent?: number;
   emails_failed?: number;
   campaign_id?: string;
+  sector_stats?: Record<string, number>;
 }
 
 interface AutopilotSend {
@@ -203,9 +206,12 @@ export function AutoPilot() {
         <div className="rounded border border-gray-800 bg-gray-900 px-4 py-3 space-y-2">
           <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">ICP Config</p>
           {(icp as any).sectors?.length > 0 && (
-             <div className="text-xs text-emerald-400 mb-2 font-medium">
-               Multi-Sector Outreach Active: {(icp as any).sectors.join(', ')}
-             </div>
+            <div className="text-xs text-emerald-400 mb-2 font-medium">
+              Multi-Sector Outreach Active: {(icp as any).sectors.join(', ')}
+            </div>
+          )}
+          {config?.daily_send_limit && (
+            <p className="text-xs text-gray-500">Daily send limit: {config.daily_send_limit}</p>
           )}
           <input
             className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
@@ -235,7 +241,9 @@ export function AutoPilot() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400 w-24 flex-shrink-0">Leads / run</label>
+            <label className="text-xs text-gray-400 w-24 flex-shrink-0">
+              {(icp as any).sectors?.length ? 'Leads / sector' : 'Leads / run'}
+            </label>
             <input
               type="number" min={1} max={100}
               className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white w-full focus:outline-none focus:border-purple-500"
@@ -324,6 +332,15 @@ export function AutoPilot() {
               </div>
             )}
             {lastRun.job_id && <p className="text-gray-600 text-xs font-mono">Job: {lastRun.job_id.slice(0, 8)}…</p>}
+            {lastRun.sector_stats && (
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(lastRun.sector_stats).map(([sector, count]) => (
+                  <span key={sector} className="rounded bg-gray-900 px-2 py-1 text-[10px] text-gray-400">
+                    {sector}: <span className={count ? 'text-emerald-400' : 'text-gray-600'}>{count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -340,6 +357,15 @@ export function AutoPilot() {
                 {config.last_run_stats.paused && (
                   <span className="text-yellow-400">⚠ paused: {config.last_run_stats.pause_reason}</span>
                 )}
+              </div>
+            )}
+            {config.last_run_stats?.sector_stats && (
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(config.last_run_stats.sector_stats).map(([sector, count]) => (
+                  <span key={sector} className="rounded bg-gray-950 px-2 py-1 text-[10px] text-gray-500">
+                    {sector}: <span className={count ? 'text-emerald-400' : 'text-gray-700'}>{count}</span>
+                  </span>
+                ))}
               </div>
             )}
           </div>
