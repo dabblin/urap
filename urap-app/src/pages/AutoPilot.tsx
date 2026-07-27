@@ -72,6 +72,8 @@ const DEFAULT_ROUTE = {
   route_min_score: 60,
 };
 
+const SEND_PAGE_SIZES = [15, 25, 50];
+
 function headers() {
   return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-tenant-id': TENANT };
 }
@@ -88,8 +90,14 @@ export function AutoPilot() {
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [sends, setSends] = useState<AutopilotSend[]>([]);
   const [selectedSend, setSelectedSend] = useState<AutopilotSend | null>(null);
+  const [sendPage, setSendPage] = useState(1);
+  const [sendPageSize, setSendPageSize] = useState(25);
 
   useEffect(() => { fetchConfig(); fetchMarketplaces(); fetchSends(); }, []);
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(sends.length / sendPageSize));
+    setSendPage(page => Math.min(page, lastPage));
+  }, [sends.length, sendPageSize]);
 
   async function fetchSends() {
     try {
@@ -169,6 +177,10 @@ export function AutoPilot() {
   }
 
   const enabled = config?.enabled ?? false;
+  const sendPageCount = Math.max(1, Math.ceil(sends.length / sendPageSize));
+  const sendStart = (sendPage - 1) * sendPageSize;
+  const visibleSends = sends.slice(sendStart, sendStart + sendPageSize);
+  const sendEnd = Math.min(sendStart + sendPageSize, sends.length);
 
   return (
     <div className="flex flex-col md:flex-row gap-4 p-4 md:h-full overflow-auto md:overflow-hidden">
@@ -312,7 +324,7 @@ export function AutoPilot() {
       </div>
 
       {/* Status panel */}
-      <div className="flex-1 flex flex-col gap-3 overflow-auto">
+      <div className="min-h-0 flex-1 flex flex-col gap-3 overflow-auto">
         <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Run Status</h2>
 
         {/* Last manual run result */}
@@ -375,17 +387,20 @@ export function AutoPilot() {
         <div className="rounded border border-gray-800 bg-gray-900 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Autopilot Sends</p>
-            <span className="text-xs text-gray-600">{sends.length} recent</span>
+            <span className="text-xs text-gray-600">
+              {sends.length ? `${sendStart + 1}–${sendEnd} of ${sends.length}` : '0 recent'}
+            </span>
           </div>
           {sends.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-gray-600">
               No autopilot sends yet — they appear here after each scheduled or manual run.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs" style={{ minWidth: '760px' }}>
-                <thead>
-                  <tr className="border-b border-gray-800 text-left text-gray-500 uppercase tracking-wider">
+            <>
+              <div className="max-h-[52vh] overflow-auto">
+                <table className="w-full text-xs" style={{ minWidth: '760px' }}>
+                  <thead className="sticky top-0 z-10 bg-gray-900 shadow-[0_1px_0_0_rgb(31_41_55)]">
+                    <tr className="text-left text-gray-500 uppercase tracking-wider">
                     <th className="px-4 py-2 font-medium">Sent</th>
                     <th className="px-4 py-2 font-medium">Contact</th>
                     <th className="px-4 py-2 font-medium">Company</th>
@@ -397,7 +412,7 @@ export function AutoPilot() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/60">
-                  {sends.map(s => (
+                  {visibleSends.map(s => (
                     <tr key={s.id} className="hover:bg-gray-800/40 transition-colors">
                       <td className="px-4 py-2 text-gray-500 font-mono whitespace-nowrap">{s.sent_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
                       <td className="px-4 py-2 text-white">{s.name || '—'}</td>
@@ -422,7 +437,62 @@ export function AutoPilot() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+              <div className="flex flex-col gap-2 border-t border-gray-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex items-center gap-2 text-xs text-gray-500">
+                  Rows
+                  <select
+                    value={sendPageSize}
+                    onChange={event => {
+                      setSendPageSize(Number(event.target.value));
+                      setSendPage(1);
+                    }}
+                    className="rounded border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-300 focus:border-purple-500 focus:outline-none"
+                  >
+                    {SEND_PAGE_SIZES.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSendPage(1)}
+                    disabled={sendPage === 1}
+                    className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-400 hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    First
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendPage(page => Math.max(1, page - 1))}
+                    disabled={sendPage === 1}
+                    className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-400 hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Previous
+                  </button>
+                  <span className="min-w-20 text-center text-xs text-gray-500">
+                    Page {sendPage} of {sendPageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSendPage(page => Math.min(sendPageCount, page + 1))}
+                    disabled={sendPage === sendPageCount}
+                    className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-400 hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Next
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendPage(sendPageCount)}
+                    disabled={sendPage === sendPageCount}
+                    className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-400 hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 

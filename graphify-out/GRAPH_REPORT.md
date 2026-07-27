@@ -1,7 +1,7 @@
 # Graph Report - urap  (2026-07-27)
 
 ## Corpus Check
-- 91 files · ~206,146 words
+- 91 files · ~206,386 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
