@@ -256,11 +256,15 @@ async def _company_sweep_people(filters: dict, limit: int) -> list[dict]:
         # Prospeo first — richer (often includes LinkedIn URL + verified flag).
         try:
             for p in await prospeo.domain_search(domain, limit=10):
-                if not getattr(p, "email", "") or not _title_matches(getattr(p, "title", "") or "", wanted):
+                if not _title_matches(getattr(p, "title", "") or "", wanted):
                     continue
                 rows.append({
                     "first_name": p.first_name or "", "last_name": p.last_name or "",
-                    "name": _full_name(p.first_name or "", p.last_name or "", p.email.split("@")[0]),
+                    "name": _full_name(
+                        p.first_name or "",
+                        p.last_name or "",
+                        p.email.split("@")[0] if p.email else "",
+                    ),
                     "title": getattr(p, "title", "") or "", "company": company_name, "domain": domain,
                     "linkedin_url": getattr(p, "linkedin_url", "") or "", "location": "", "seniority": "",
                     "email": p.email, "email_verified": bool(getattr(p, "verified", False)),
@@ -291,13 +295,18 @@ async def _company_sweep_people(filters: dict, limit: int) -> list[dict]:
 
     people: list[dict] = []
     seen: set[str] = set()
-    # Priority-title people first, then the rest, deduped by email.
+    # Priority-title people first, then the rest, deduped by the strongest identity available.
     flat = [r for batch in swept for r in batch]
     flat.sort(key=lambda r: 0 if _title_matches(r["title"], _PRIORITY_TITLES) else 1)
     for r in flat:
-        if r["email"] in seen:
+        identity = (
+            r["email"]
+            or r["linkedin_url"]
+            or f'{r["name"].lower()}|{r["company"].lower()}'
+        )
+        if identity in seen:
             continue
-        seen.add(r["email"])
+        seen.add(identity)
         people.append(r)
         if len(people) >= limit:
             break

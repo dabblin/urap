@@ -109,7 +109,7 @@
       "source_file": "urap-app/src/App.tsx",
       "source_location": "L1",
       "id": "urap_app_src_app_tsx",
-      "community": 16,
+      "community": 15,
       "norm_label": "app.tsx"
     },
     {
@@ -118,7 +118,7 @@
       "source_file": "urap-app/src/main.tsx",
       "source_location": "L1",
       "id": "urap_app_src_main_tsx",
-      "community": 16,
+      "community": 15,
       "norm_label": "main.tsx"
     },
     {
@@ -145,7 +145,7 @@
       "source_file": "urap-app/src/registry.ts",
       "source_location": "L1",
       "id": "urap_app_src_registry_ts",
-      "community": 16,
+      "community": 15,
       "norm_label": "registry.ts"
     },
     {
@@ -154,7 +154,7 @@
       "source_file": "urap-core/src/registry.ts",
       "source_location": "L5",
       "id": "src_registry_registertool",
-      "community": 16,
+      "community": 15,
       "norm_label": "registertool()"
     },
     {
@@ -163,7 +163,7 @@
       "source_file": "urap-core/src/registry.ts",
       "source_location": "L9",
       "id": "src_registry_gettoolsbypillar",
-      "community": 16,
+      "community": 15,
       "norm_label": "gettoolsbypillar()"
     },
     {
@@ -172,7 +172,7 @@
       "source_file": "urap-core/src/registry.ts",
       "source_location": "L13",
       "id": "src_registry_getalltools",
-      "community": 16,
+      "community": 15,
       "norm_label": "getalltools()"
     },
     {
@@ -199,7 +199,7 @@
       "source_file": "urap-app/src/components/layout/Sidebar.tsx",
       "source_location": "L1",
       "id": "urap_app_src_components_layout_sidebar_tsx",
-      "community": 16,
+      "community": 15,
       "norm_label": "sidebar.tsx"
     },
     {
@@ -950,10 +950,19 @@
       "norm_label": "fmtdate()"
     },
     {
+      "label": "apiHeaders()",
+      "file_type": "code",
+      "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
+      "source_location": "L105",
+      "id": "pages_companiessearch_apiheaders",
+      "community": 2,
+      "norm_label": "apiheaders()"
+    },
+    {
       "label": "ComposeModal()",
       "file_type": "code",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L116",
+      "source_location": "L124",
       "id": "pages_companiessearch_composemodal",
       "community": 2,
       "norm_label": "composemodal()"
@@ -962,7 +971,7 @@
       "label": "SequenceBuilderModal()",
       "file_type": "code",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L251",
+      "source_location": "L259",
       "id": "pages_companiessearch_sequencebuildermodal",
       "community": 2,
       "norm_label": "sequencebuildermodal()"
@@ -971,7 +980,7 @@
       "label": "handleLaunch()",
       "file_type": "code",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L437",
+      "source_location": "L445",
       "id": "pages_companiessearch_handlelaunch",
       "community": 2,
       "norm_label": "handlelaunch()"
@@ -1040,12 +1049,93 @@
       "norm_label": "__init__.py"
     },
     {
+      "label": "test_prospeo_client.py",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L1",
+      "id": "urap_engine_tests_test_prospeo_client_py",
+      "community": 16,
+      "norm_label": "test_prospeo_client.py"
+    },
+    {
+      "label": "_FakeResponse",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L6",
+      "id": "tests_test_prospeo_client_fakeresponse",
+      "community": 16,
+      "norm_label": "_fakeresponse"
+    },
+    {
+      "label": ".json()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L9",
+      "id": "tests_test_prospeo_client_fakeresponse_json",
+      "community": 16,
+      "norm_label": ".json()"
+    },
+    {
+      "label": "_FakeAsyncClient",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L31",
+      "id": "tests_test_prospeo_client_fakeasyncclient",
+      "community": 16,
+      "norm_label": "_fakeasyncclient"
+    },
+    {
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L34",
+      "id": "tests_test_prospeo_client_fakeasyncclient_init",
+      "community": 16,
+      "norm_label": ".__init__()"
+    },
+    {
+      "label": ".__aenter__()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L37",
+      "id": "tests_test_prospeo_client_fakeasyncclient_aenter",
+      "community": 16,
+      "norm_label": ".__aenter__()"
+    },
+    {
+      "label": ".__aexit__()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L40",
+      "id": "tests_test_prospeo_client_fakeasyncclient_aexit",
+      "community": 16,
+      "norm_label": ".__aexit__()"
+    },
+    {
+      "label": ".post()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L43",
+      "id": "tests_test_prospeo_client_fakeasyncclient_post",
+      "community": 16,
+      "norm_label": ".post()"
+    },
+    {
+      "label": "test_domain_search_uses_current_prospeo_schema()",
+      "file_type": "code",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L49",
+      "id": "tests_test_prospeo_client_test_domain_search_uses_current_prospeo_schema",
+      "community": 16,
+      "norm_label": "test_domain_search_uses_current_prospeo_schema()"
+    },
+    {
       "label": "test_e2e.py",
       "file_type": "code",
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L1",
       "id": "urap_engine_tests_test_e2e_py",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_e2e.py"
     },
     {
@@ -1063,7 +1153,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L39",
       "id": "tests_test_e2e_auth_headers",
-      "community": 8,
+      "community": 7,
       "norm_label": "auth_headers()"
     },
     {
@@ -1072,7 +1162,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L45",
       "id": "tests_test_e2e_test_health",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_health()"
     },
     {
@@ -1081,7 +1171,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L55",
       "id": "tests_test_e2e_test_enrich_single",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_enrich_single()"
     },
     {
@@ -1090,7 +1180,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L68",
       "id": "tests_test_e2e_test_bulk_enrich",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_bulk_enrich()"
     },
     {
@@ -1099,7 +1189,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L81",
       "id": "tests_test_e2e_test_consent_record_and_check",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_consent_record_and_check()"
     },
     {
@@ -1108,7 +1198,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L106",
       "id": "tests_test_e2e_test_channel_event_send_and_reply",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_channel_event_send_and_reply()"
     },
     {
@@ -1117,7 +1207,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L131",
       "id": "tests_test_e2e_test_email_send_graceful_without_smtp_key",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_email_send_graceful_without_smtp_key()"
     },
     {
@@ -1126,7 +1216,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L150",
       "id": "tests_test_e2e_test_warp_mode_run",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_warp_mode_run()"
     },
     {
@@ -1135,7 +1225,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L168",
       "id": "tests_test_e2e_test_warp_mode_list_jobs",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_warp_mode_list_jobs()"
     },
     {
@@ -1144,7 +1234,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L178",
       "id": "tests_test_e2e_test_reply_parse_meeting_request",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_reply_parse_meeting_request()"
     },
     {
@@ -1153,7 +1243,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L195",
       "id": "tests_test_e2e_test_reply_parse_unsubscribe",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_reply_parse_unsubscribe()"
     },
     {
@@ -1162,7 +1252,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L209",
       "id": "tests_test_e2e_test_lead_capture_and_claim",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_lead_capture_and_claim()"
     },
     {
@@ -1171,7 +1261,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L243",
       "id": "tests_test_e2e_test_lead_recent",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_lead_recent()"
     },
     {
@@ -1180,7 +1270,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L253",
       "id": "tests_test_e2e_test_voice_dial_graceful_without_twilio",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_voice_dial_graceful_without_twilio()"
     },
     {
@@ -1189,7 +1279,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L265",
       "id": "tests_test_e2e_test_sms_send_blocked_without_consent",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_sms_send_blocked_without_consent()"
     },
     {
@@ -1198,7 +1288,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L280",
       "id": "tests_test_e2e_test_zapier_subscribe_list_delete",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_zapier_subscribe_list_delete()"
     },
     {
@@ -1207,7 +1297,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L306",
       "id": "tests_test_e2e_test_api_key_generate_list_revoke",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_api_key_generate_list_revoke()"
     },
     {
@@ -1216,7 +1306,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L329",
       "id": "tests_test_e2e_test_bulk_enrich_icp",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_bulk_enrich_icp()"
     },
     {
@@ -1225,7 +1315,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L340",
       "id": "tests_test_e2e_test_bulk_enrich_csv",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_bulk_enrich_csv()"
     },
     {
@@ -1234,7 +1324,7 @@
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L354",
       "id": "tests_test_e2e_test_autopilot_enable_config_run_disable",
-      "community": 8,
+      "community": 7,
       "norm_label": "test_autopilot_enable_config_run_disable()"
     },
     {
@@ -1242,7 +1332,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L1",
-      "community": 8,
+      "community": 7,
       "norm_label": "urap engine \u2014 e2e golden path test suite.  tests the full request lifecycle agai",
       "id": "tests_test_e2e_rationale_1"
     },
@@ -1260,7 +1350,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L132",
-      "community": 8,
+      "community": 7,
       "norm_label": "email send should fail gracefully (not 500) when smtp keys absent.",
       "id": "tests_test_e2e_rationale_132"
     },
@@ -1269,7 +1359,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L151",
-      "community": 8,
+      "community": 7,
       "norm_label": "warp mode should complete (with fallback copy) even without ai keys.",
       "id": "tests_test_e2e_rationale_151"
     },
@@ -1278,7 +1368,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/tests/test_e2e.py",
       "source_location": "L266",
-      "community": 8,
+      "community": 7,
       "norm_label": "sms should be blocked by tcpa gate for unconsented lead.",
       "id": "tests_test_e2e_rationale_266"
     },
@@ -1684,7 +1774,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L368",
       "id": "server_main_people_search",
-      "community": 1,
+      "community": 3,
       "norm_label": "people_search()"
     },
     {
@@ -1693,7 +1783,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L382",
       "id": "server_main_company_contact",
-      "community": 15,
+      "community": 14,
       "norm_label": "company_contact()"
     },
     {
@@ -1711,7 +1801,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L408",
       "id": "server_main_save_lead_list",
-      "community": 14,
+      "community": 1,
       "norm_label": "save_lead_list()"
     },
     {
@@ -1720,7 +1810,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L420",
       "id": "server_main_get_lead_lists",
-      "community": 14,
+      "community": 1,
       "norm_label": "get_lead_lists()"
     },
     {
@@ -1729,7 +1819,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L428",
       "id": "server_main_get_lead_list_items",
-      "community": 14,
+      "community": 1,
       "norm_label": "get_lead_list_items()"
     },
     {
@@ -1738,7 +1828,7 @@
       "source_file": "urap-engine/server/main.py",
       "source_location": "L436",
       "id": "server_main_delete_lead_list",
-      "community": 14,
+      "community": 1,
       "norm_label": "delete_lead_list()"
     },
     {
@@ -3734,7 +3824,7 @@
       "label": "_brave_query()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L313",
+      "source_location": "L322",
       "id": "m1_intelligence_people_discover_brave_query",
       "community": 3,
       "norm_label": "_brave_query()"
@@ -3743,7 +3833,7 @@
       "label": "_brave_people()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L324",
+      "source_location": "L333",
       "id": "m1_intelligence_people_discover_brave_people",
       "community": 3,
       "norm_label": "_brave_people()"
@@ -3752,7 +3842,7 @@
       "label": "_strip_tags()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L379",
+      "source_location": "L388",
       "id": "m1_intelligence_people_discover_strip_tags",
       "community": 3,
       "norm_label": "_strip_tags()"
@@ -3761,7 +3851,7 @@
       "label": "_parse_linkedin_title()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L383",
+      "source_location": "L392",
       "id": "m1_intelligence_people_discover_parse_linkedin_title",
       "community": 3,
       "norm_label": "_parse_linkedin_title()"
@@ -3770,7 +3860,7 @@
       "label": "_duckduckgo_people()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L394",
+      "source_location": "L403",
       "id": "m1_intelligence_people_discover_duckduckgo_people",
       "community": 3,
       "norm_label": "_duckduckgo_people()"
@@ -3779,7 +3869,7 @@
       "label": "_to_contact()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L440",
+      "source_location": "L449",
       "id": "m1_intelligence_people_discover_to_contact",
       "community": 3,
       "norm_label": "_to_contact()"
@@ -3788,7 +3878,7 @@
       "label": "discover_people()",
       "file_type": "code",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L459",
+      "source_location": "L468",
       "id": "m1_intelligence_people_discover_discover_people",
       "community": 3,
       "norm_label": "discover_people()"
@@ -3833,19 +3923,19 @@
       "label": "A LinkedIn result title looks like 'Jane Doe - VP Sales - Acme Corp | LinkedIn'.",
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L384",
+      "source_location": "L393",
+      "id": "m1_intelligence_people_discover_rationale_393",
       "community": 3,
-      "norm_label": "a linkedin result title looks like 'jane doe - vp sales - acme corp | linkedin'.",
-      "id": "m1_intelligence_people_discover_rationale_384"
+      "norm_label": "a linkedin result title looks like 'jane doe - vp sales - acme corp | linkedin'."
     },
     {
       "label": "Find top-level people matching the filter set, then reveal + verify their email",
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L466",
+      "source_location": "L475",
+      "id": "m1_intelligence_people_discover_rationale_475",
       "community": 3,
-      "norm_label": "find top-level people matching the filter set, then reveal + verify their email",
-      "id": "m1_intelligence_people_discover_rationale_466"
+      "norm_label": "find top-level people matching the filter set, then reveal + verify their email"
     },
     {
       "label": "__init__.py",
@@ -3997,7 +4087,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L1",
       "id": "urap_engine_modules_m1_intelligence_lead_lists_py",
-      "community": 14,
+      "community": 1,
       "norm_label": "lead_lists.py"
     },
     {
@@ -4006,7 +4096,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L17",
       "id": "m1_intelligence_lead_lists_db",
-      "community": 14,
+      "community": 1,
       "norm_label": "_db()"
     },
     {
@@ -4015,7 +4105,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L22",
       "id": "m1_intelligence_lead_lists_save_list",
-      "community": 14,
+      "community": 1,
       "norm_label": "save_list()"
     },
     {
@@ -4024,7 +4114,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L65",
       "id": "m1_intelligence_lead_lists_get_lists",
-      "community": 14,
+      "community": 1,
       "norm_label": "get_lists()"
     },
     {
@@ -4033,7 +4123,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L78",
       "id": "m1_intelligence_lead_lists_get_list_items",
-      "community": 14,
+      "community": 1,
       "norm_label": "get_list_items()"
     },
     {
@@ -4042,7 +4132,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L91",
       "id": "m1_intelligence_lead_lists_delete_list",
-      "community": 14,
+      "community": 1,
       "norm_label": "delete_list()"
     },
     {
@@ -4050,7 +4140,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L1",
-      "community": 14,
+      "community": 1,
       "norm_label": "lead list management \u2014 saves search results + enriched contacts to supabase.  ta",
       "id": "m1_intelligence_lead_lists_rationale_1"
     },
@@ -4059,7 +4149,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L23",
-      "community": 14,
+      "community": 1,
       "norm_label": "create a named lead list and insert all items.     each item dict may contain: n",
       "id": "m1_intelligence_lead_lists_rationale_23"
     },
@@ -4068,7 +4158,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L66",
-      "community": 14,
+      "community": 1,
       "norm_label": "return all lists for a tenant, most recent first.",
       "id": "m1_intelligence_lead_lists_rationale_66"
     },
@@ -4077,7 +4167,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L79",
-      "community": 14,
+      "community": 1,
       "norm_label": "return all items in a specific list.",
       "id": "m1_intelligence_lead_lists_rationale_79"
     },
@@ -4086,7 +4176,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/lead_lists.py",
       "source_location": "L92",
-      "community": 14,
+      "community": 1,
       "norm_label": "delete a list (items cascade via fk in supabase).",
       "id": "m1_intelligence_lead_lists_rationale_92"
     },
@@ -4096,7 +4186,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L1",
       "id": "urap_engine_modules_m1_intelligence_contact_discover_py",
-      "community": 15,
+      "community": 14,
       "norm_label": "contact_discover.py"
     },
     {
@@ -4105,7 +4195,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L40",
       "id": "m1_intelligence_contact_discover_scrape_socials",
-      "community": 15,
+      "community": 14,
       "norm_label": "_scrape_socials()"
     },
     {
@@ -4114,7 +4204,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L62",
       "id": "m1_intelligence_contact_discover_yelp_website",
-      "community": 15,
+      "community": 14,
       "norm_label": "_yelp_website()"
     },
     {
@@ -4123,7 +4213,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L87",
       "id": "m1_intelligence_contact_discover_guess_domain_from_name",
-      "community": 15,
+      "community": 14,
       "norm_label": "_guess_domain_from_name()"
     },
     {
@@ -4132,7 +4222,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L128",
       "id": "m1_intelligence_contact_discover_is_listing",
-      "community": 15,
+      "community": 14,
       "norm_label": "_is_listing()"
     },
     {
@@ -4141,7 +4231,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L133",
       "id": "m1_intelligence_contact_discover_hunter_find",
-      "community": 15,
+      "community": 14,
       "norm_label": "_hunter_find()"
     },
     {
@@ -4150,7 +4240,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L168",
       "id": "m1_intelligence_contact_discover_scrape_email",
-      "community": 15,
+      "community": 14,
       "norm_label": "_scrape_email()"
     },
     {
@@ -4159,7 +4249,7 @@
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L195",
       "id": "m1_intelligence_contact_discover_discover_contact",
-      "community": 15,
+      "community": 14,
       "norm_label": "discover_contact()"
     },
     {
@@ -4176,7 +4266,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L1",
-      "community": 15,
+      "community": 14,
       "norm_label": "contact discovery \u2014 two strategies in priority order:   1. hunter.io domain sear",
       "id": "m1_intelligence_contact_discover_rationale_1"
     },
@@ -4185,7 +4275,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L41",
-      "community": 15,
+      "community": 14,
       "norm_label": "scrape the homepage for social media profile links.",
       "id": "m1_intelligence_contact_discover_rationale_41"
     },
@@ -4194,7 +4284,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L63",
-      "community": 15,
+      "community": 14,
       "norm_label": "fetch the real business website url from yelp's details endpoint.",
       "id": "m1_intelligence_contact_discover_rationale_63"
     },
@@ -4203,7 +4293,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L88",
-      "community": 15,
+      "community": 14,
       "norm_label": "try several domain patterns derived from the business name, return first that re",
       "id": "m1_intelligence_contact_discover_rationale_88"
     },
@@ -4212,7 +4302,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m1_intelligence/contact_discover.py",
       "source_location": "L202",
-      "community": 15,
+      "community": 14,
       "norm_label": "discover contact info for a single business.     returns: { email, first_name, l",
       "id": "m1_intelligence_contact_discover_rationale_202"
     },
@@ -4708,7 +4798,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L1",
       "id": "urap_engine_modules_m4_inbound_lead_router_py",
-      "community": 7,
+      "community": 8,
       "norm_label": "lead_router.py"
     },
     {
@@ -4717,7 +4807,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L15",
       "id": "m4_inbound_lead_router_db",
-      "community": 7,
+      "community": 8,
       "norm_label": "_db()"
     },
     {
@@ -4726,7 +4816,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L23",
       "id": "m4_inbound_lead_router_inboundlead",
-      "community": 7,
+      "community": 8,
       "norm_label": "inboundlead"
     },
     {
@@ -4735,7 +4825,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L41",
       "id": "m4_inbound_lead_router_previewattributes",
-      "community": 7,
+      "community": 8,
       "norm_label": "previewattributes"
     },
     {
@@ -4744,7 +4834,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L54",
       "id": "m4_inbound_lead_router_claimresult",
-      "community": 7,
+      "community": 8,
       "norm_label": "claimresult"
     },
     {
@@ -4753,7 +4843,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L65",
       "id": "m4_inbound_lead_router_infer_company_size",
-      "community": 7,
+      "community": 8,
       "norm_label": "_infer_company_size()"
     },
     {
@@ -4762,7 +4852,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L78",
       "id": "m4_inbound_lead_router_infer_title_level",
-      "community": 7,
+      "community": 8,
       "norm_label": "_infer_title_level()"
     },
     {
@@ -4780,7 +4870,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L103",
       "id": "m4_inbound_lead_router_leadrouterservice_capture",
-      "community": 7,
+      "community": 8,
       "norm_label": ".capture()"
     },
     {
@@ -4789,7 +4879,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L188",
       "id": "m4_inbound_lead_router_leadrouterservice_preview",
-      "community": 7,
+      "community": 8,
       "norm_label": ".preview()"
     },
     {
@@ -4798,7 +4888,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L223",
       "id": "m4_inbound_lead_router_leadrouterservice_claim",
-      "community": 7,
+      "community": 8,
       "norm_label": ".claim()"
     },
     {
@@ -4807,7 +4897,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L276",
       "id": "m4_inbound_lead_router_leadrouterservice_get_lead_pii",
-      "community": 7,
+      "community": 8,
       "norm_label": ".get_lead_pii()"
     },
     {
@@ -4816,7 +4906,7 @@
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L297",
       "id": "m4_inbound_lead_router_leadrouterservice_list_recent",
-      "community": 7,
+      "community": 8,
       "norm_label": ".list_recent()"
     },
     {
@@ -4824,7 +4914,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L1",
-      "community": 7,
+      "community": 8,
       "norm_label": "module iv \u2014 inbound lead capture & distribution (sprint 5).",
       "id": "m4_inbound_lead_router_rationale_1"
     },
@@ -4833,7 +4923,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L42",
-      "community": 7,
+      "community": 8,
       "norm_label": "anonymized lead attributes for ping-post preview (no pii).",
       "id": "m4_inbound_lead_router_rationale_42"
     },
@@ -4851,7 +4941,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L116",
-      "community": 7,
+      "community": 8,
       "norm_label": "step 1 of ping-post: receive inbound lead, enrich, store in supabase.         re",
       "id": "m4_inbound_lead_router_rationale_116"
     },
@@ -4860,7 +4950,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L189",
-      "community": 7,
+      "community": 8,
       "norm_label": "step 2 of ping-post: build anonymized preview, cache with 5-min ttl.         ret",
       "id": "m4_inbound_lead_router_rationale_189"
     },
@@ -4869,7 +4959,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L224",
-      "community": 7,
+      "community": 8,
       "norm_label": "step 3 of ping-post: buyer claims lead \u2014 release pii, fire stripe metered event.",
       "id": "m4_inbound_lead_router_rationale_224"
     },
@@ -4878,7 +4968,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L277",
-      "community": 7,
+      "community": 8,
       "norm_label": "retrieve full pii record for a claimed lead.",
       "id": "m4_inbound_lead_router_rationale_277"
     },
@@ -4887,7 +4977,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/modules/m4_inbound/lead_router.py",
       "source_location": "L298",
-      "community": 7,
+      "community": 8,
       "norm_label": "list recently captured leads for a tenant (no pii in listing).",
       "id": "m4_inbound_lead_router_rationale_298"
     },
@@ -5963,10 +6053,19 @@
       "norm_label": "._parse_person()"
     },
     {
+      "label": "._parse_search_result()",
+      "file_type": "code",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L63",
+      "id": "prospeo_client_prospeoclient_parse_search_result",
+      "community": 3,
+      "norm_label": "._parse_search_result()"
+    },
+    {
       "label": ".find_email()",
       "file_type": "code",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L58",
+      "source_location": "L88",
       "id": "prospeo_client_prospeoclient_find_email",
       "community": 3,
       "norm_label": ".find_email()"
@@ -5975,7 +6074,7 @@
       "label": ".domain_search()",
       "file_type": "code",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L84",
+      "source_location": "L114",
       "id": "prospeo_client_prospeoclient_domain_search",
       "community": 3,
       "norm_label": ".domain_search()"
@@ -5999,13 +6098,22 @@
       "id": "prospeo_client_rationale_40"
     },
     {
-      "label": "Pull contacts at a domain via search-person + enrich in one pass.",
+      "label": "Normalize the current Search Person `{person, company}` result shape.",
       "file_type": "rationale",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L85",
+      "source_location": "L64",
+      "id": "prospeo_client_rationale_64",
       "community": 3,
-      "norm_label": "pull contacts at a domain via search-person + enrich in one pass.",
-      "id": "prospeo_client_rationale_85"
+      "norm_label": "normalize the current search person `{person, company}` result shape."
+    },
+    {
+      "label": "Pull named contacts at a domain via Prospeo Search Person.",
+      "file_type": "rationale",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L115",
+      "id": "prospeo_client_rationale_115",
+      "community": 3,
+      "norm_label": "pull named contacts at a domain via prospeo search person."
     },
     {
       "label": "__init__.py",
@@ -6571,7 +6679,7 @@
       "source_file": "urap-engine/tier3/twilio/client.py",
       "source_location": "L44",
       "id": "twilio_client_geolocate_country",
-      "community": 7,
+      "community": 8,
       "norm_label": "geolocate_country()"
     },
     {
@@ -6642,7 +6750,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/tier3/twilio/client.py",
       "source_location": "L45",
-      "community": 7,
+      "community": 8,
       "norm_label": "light-weight geo lookup using ipapi.co (free, no key required, 1k req/day).",
       "id": "twilio_client_rationale_45"
     },
@@ -6688,7 +6796,7 @@
       "source_file": "urap-engine/services/stripe_metered.py",
       "source_location": "L1",
       "id": "urap_engine_services_stripe_metered_py",
-      "community": 7,
+      "community": 8,
       "norm_label": "stripe_metered.py"
     },
     {
@@ -6697,7 +6805,7 @@
       "source_file": "urap-engine/services/stripe_metered.py",
       "source_location": "L13",
       "id": "services_stripe_metered_report_lead_qualified",
-      "community": 7,
+      "community": 8,
       "norm_label": "report_lead_qualified()"
     },
     {
@@ -6705,7 +6813,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/services/stripe_metered.py",
       "source_location": "L1",
-      "community": 7,
+      "community": 8,
       "norm_label": "stripe metered billing \u2014 report a qualified lead claim as a usage event.",
       "id": "services_stripe_metered_rationale_1"
     },
@@ -6714,7 +6822,7 @@
       "file_type": "rationale",
       "source_file": "urap-engine/services/stripe_metered.py",
       "source_location": "L19",
-      "community": 7,
+      "community": 8,
       "norm_label": "fire a stripe usage record for one qualified lead claim.     uses the metered bi",
       "id": "services_stripe_metered_rationale_19"
     },
@@ -6733,7 +6841,7 @@
       "source_file": "urap-core/src/middleware.ts",
       "source_location": "L1",
       "id": "urap_core_src_middleware_ts",
-      "community": 16,
+      "community": 15,
       "norm_label": "middleware.ts"
     },
     {
@@ -6742,7 +6850,7 @@
       "source_file": "urap-core/src/middleware.ts",
       "source_location": "L4",
       "id": "src_middleware_urapmiddleware",
-      "community": 16,
+      "community": 15,
       "norm_label": "urapmiddleware()"
     },
     {
@@ -6751,7 +6859,7 @@
       "source_file": "urap-core/src/types.ts",
       "source_location": "L1",
       "id": "urap_core_src_types_ts",
-      "community": 16,
+      "community": 15,
       "norm_label": "types.ts"
     },
     {
@@ -6760,7 +6868,7 @@
       "source_file": "urap-core/src/registry.ts",
       "source_location": "L1",
       "id": "urap_core_src_registry_ts",
-      "community": 16,
+      "community": 15,
       "norm_label": "registry.ts"
     },
     {
@@ -6769,7 +6877,7 @@
       "source_file": "urap-core/src/registry.ts",
       "source_location": "L17",
       "id": "src_registry_gettoolbyid",
-      "community": 16,
+      "community": 15,
       "norm_label": "gettoolbyid()"
     },
     {
@@ -6798,6 +6906,33 @@
       "id": "src_embed_generateembedsnippet",
       "community": 22,
       "norm_label": "generateembedsnippet()"
+    },
+    {
+      "label": "A LinkedIn result title looks like 'Jane Doe - VP Sales - Acme Corp | LinkedIn'.",
+      "file_type": "rationale",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L384",
+      "community": 3,
+      "norm_label": "a linkedin result title looks like 'jane doe - vp sales - acme corp | linkedin'.",
+      "id": "m1_intelligence_people_discover_rationale_384"
+    },
+    {
+      "label": "Find top-level people matching the filter set, then reveal + verify their email",
+      "file_type": "rationale",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L466",
+      "community": 3,
+      "norm_label": "find top-level people matching the filter set, then reveal + verify their email",
+      "id": "m1_intelligence_people_discover_rationale_466"
+    },
+    {
+      "label": "Pull contacts at a domain via search-person + enrich in one pass.",
+      "file_type": "rationale",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L85",
+      "community": 53,
+      "norm_label": "pull contacts at a domain via search-person + enrich in one pass.",
+      "id": "prospeo_client_rationale_85"
     },
     {
       "label": "Save or update autopilot config for a tenant. Upsert on tenant_id.         sched",
@@ -7453,7 +7588,7 @@
       "author": null,
       "contributor": null,
       "rationale": "Strict three-column layout based on Seamless.AI model; talks directly to urap-engine over HTTP with no SSR layer; tool registry drives all sidebar/routing to avoid hardcoded nav",
-      "community": 53,
+      "community": 54,
       "norm_label": "urap-app \u2014 react + vite frontend dashboard",
       "id": "readme_urap_app"
     },
@@ -7467,7 +7602,7 @@
       "author": null,
       "contributor": null,
       "rationale": "All business logic centralized in one service so frontend and middleware plugin both proxy to it; Python 3.12 required due to pydantic 2.8 incompatibility with 3.14",
-      "community": 54,
+      "community": 55,
       "norm_label": "urap-engine \u2014 python fastapi microservice",
       "id": "readme_urap_engine"
     },
@@ -7481,7 +7616,7 @@
       "author": null,
       "contributor": null,
       "rationale": "Thin proxy layer so host sites can embed URAP without deploying a separate frontend; exposes lead capture and consent endpoints while keeping business logic solely in the engine",
-      "community": 55,
+      "community": 56,
       "norm_label": "@antigravity/urap-core \u2014 express middleware plugin",
       "id": "readme_urap_core"
     },
@@ -7508,7 +7643,7 @@
       "author": null,
       "contributor": null,
       "rationale": "Single shared state object flowing through every module ensures channel state machine can pause all channels on any reply event",
-      "community": 56,
+      "community": 57,
       "norm_label": "leadstatusobject",
       "id": "lead_status_object"
     },
@@ -7562,7 +7697,7 @@
       "author": null,
       "contributor": null,
       "rationale": "Waterfall of three free-tier email providers ensures reliable delivery without requiring a paid primary sender",
-      "community": 57,
+      "community": 58,
       "norm_label": "email sender waterfall (smtp2go \u2192 brevo \u2192 mailgun)",
       "id": "email_sender_waterfall"
     },
@@ -7617,7 +7752,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 58,
+      "community": 59,
       "norm_label": "fastapi 0.115",
       "id": "fastapi_framework"
     },
@@ -7643,7 +7778,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 59,
+      "community": 60,
       "norm_label": "supabase python client",
       "id": "supabase_client"
     },
@@ -7656,7 +7791,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 60,
+      "community": 61,
       "norm_label": "stripe metered billing",
       "id": "stripe_billing"
     },
@@ -7669,7 +7804,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 61,
+      "community": 62,
       "norm_label": "twilio voice/sms integration",
       "id": "twilio_integration"
     },
@@ -7682,7 +7817,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 62,
+      "community": 63,
       "norm_label": "google adk + openrouter (ai agent pattern)",
       "id": "google_adk"
     },
@@ -7721,7 +7856,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 63,
+      "community": 64,
       "norm_label": "google cloud run deployment target",
       "id": "cloud_run_deploy"
     },
@@ -7734,7 +7869,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 64,
+      "community": 65,
       "norm_label": "trustedform tcpa consent integration",
       "id": "trustedform"
     },
@@ -7760,7 +7895,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 65,
+      "community": 66,
       "norm_label": "react 19 + vite 6",
       "id": "react19_vite6"
     },
@@ -7773,7 +7908,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 66,
+      "community": 67,
       "norm_label": "tailwind css 3",
       "id": "tailwind_css"
     },
@@ -7786,7 +7921,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 68,
       "norm_label": "react router v7",
       "id": "react_router_v7"
     }
@@ -9308,7 +9443,19 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L116",
+      "source_location": "L105",
+      "weight": 1.0,
+      "_src": "urap_app_src_pages_companiessearch_tsx",
+      "_tgt": "pages_companiessearch_apiheaders",
+      "source": "urap_app_src_pages_companiessearch_tsx",
+      "target": "pages_companiessearch_apiheaders",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
+      "source_location": "L124",
       "weight": 1.0,
       "_src": "urap_app_src_pages_companiessearch_tsx",
       "_tgt": "pages_companiessearch_composemodal",
@@ -9320,7 +9467,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L251",
+      "source_location": "L259",
       "weight": 1.0,
       "_src": "urap_app_src_pages_companiessearch_tsx",
       "_tgt": "pages_companiessearch_sequencebuildermodal",
@@ -9332,11 +9479,23 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
-      "source_location": "L437",
+      "source_location": "L445",
       "weight": 1.0,
       "_src": "urap_app_src_pages_companiessearch_tsx",
       "_tgt": "pages_companiessearch_handlelaunch",
       "source": "urap_app_src_pages_companiessearch_tsx",
+      "target": "pages_companiessearch_handlelaunch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-app/src/pages/CompaniesSearch.tsx",
+      "source_location": "L452",
+      "weight": 1.0,
+      "_src": "pages_companiessearch_handlelaunch",
+      "_tgt": "pages_companiessearch_apiheaders",
+      "source": "pages_companiessearch_apiheaders",
       "target": "pages_companiessearch_handlelaunch",
       "confidence_score": 1.0
     },
@@ -9423,6 +9582,114 @@
       "_tgt": "m3_agents_warp_mode_warpmodeagent",
       "source": "tests_test_autopilot_multisector_test_warp_mode_accepts_batches_larger_than_25",
       "target": "m3_agents_warp_mode_warpmodeagent"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_src": "urap_engine_tests_test_prospeo_client_py",
+      "_tgt": "tests_test_prospeo_client_fakeresponse",
+      "source": "urap_engine_tests_test_prospeo_client_py",
+      "target": "tests_test_prospeo_client_fakeresponse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_src": "urap_engine_tests_test_prospeo_client_py",
+      "_tgt": "tests_test_prospeo_client_fakeasyncclient",
+      "source": "urap_engine_tests_test_prospeo_client_py",
+      "target": "tests_test_prospeo_client_fakeasyncclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_src": "urap_engine_tests_test_prospeo_client_py",
+      "_tgt": "tests_test_prospeo_client_test_domain_search_uses_current_prospeo_schema",
+      "source": "urap_engine_tests_test_prospeo_client_py",
+      "target": "tests_test_prospeo_client_test_domain_search_uses_current_prospeo_schema",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeresponse",
+      "_tgt": "tests_test_prospeo_client_fakeresponse_json",
+      "source": "tests_test_prospeo_client_fakeresponse",
+      "target": "tests_test_prospeo_client_fakeresponse_json",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeasyncclient_post",
+      "_tgt": "tests_test_prospeo_client_fakeresponse",
+      "source": "tests_test_prospeo_client_fakeresponse",
+      "target": "tests_test_prospeo_client_fakeasyncclient_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeasyncclient",
+      "_tgt": "tests_test_prospeo_client_fakeasyncclient_init",
+      "source": "tests_test_prospeo_client_fakeasyncclient",
+      "target": "tests_test_prospeo_client_fakeasyncclient_init",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeasyncclient",
+      "_tgt": "tests_test_prospeo_client_fakeasyncclient_aenter",
+      "source": "tests_test_prospeo_client_fakeasyncclient",
+      "target": "tests_test_prospeo_client_fakeasyncclient_aenter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeasyncclient",
+      "_tgt": "tests_test_prospeo_client_fakeasyncclient_aexit",
+      "source": "tests_test_prospeo_client_fakeasyncclient",
+      "target": "tests_test_prospeo_client_fakeasyncclient_aexit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tests/test_prospeo_client.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_src": "tests_test_prospeo_client_fakeasyncclient",
+      "_tgt": "tests_test_prospeo_client_fakeasyncclient_post",
+      "source": "tests_test_prospeo_client_fakeasyncclient",
+      "target": "tests_test_prospeo_client_fakeasyncclient_post",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -27536,6 +27803,18 @@
       "relation": "calls",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_src": "prospeo_client_prospeoclient_parse_search_result",
+      "_tgt": "str",
+      "source": "str",
+      "target": "prospeo_client_prospeoclient_parse_search_result"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
       "source_file": "urap-engine/tier3/telegram/client.py",
       "source_location": "L35",
       "weight": 1.0,
@@ -32564,7 +32843,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L313",
+      "source_location": "L322",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_brave_query",
@@ -32576,7 +32855,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L324",
+      "source_location": "L333",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_brave_people",
@@ -32588,7 +32867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L379",
+      "source_location": "L388",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_strip_tags",
@@ -32600,7 +32879,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L383",
+      "source_location": "L392",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_parse_linkedin_title",
@@ -32612,7 +32891,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L394",
+      "source_location": "L403",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_duckduckgo_people",
@@ -32624,7 +32903,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L440",
+      "source_location": "L449",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_to_contact",
@@ -32636,7 +32915,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L459",
+      "source_location": "L468",
       "weight": 1.0,
       "_src": "urap_engine_modules_m1_intelligence_people_discover_py",
       "_tgt": "m1_intelligence_people_discover_discover_people",
@@ -32780,7 +33059,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L444",
+      "source_location": "L453",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_to_contact",
       "_tgt": "m1_intelligence_people_discover_full_name",
@@ -32792,7 +33071,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L479",
+      "source_location": "L488",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_discover_people",
       "_tgt": "m1_intelligence_people_discover_apollo_people",
@@ -32828,7 +33107,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L296",
+      "source_location": "L300",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_company_sweep_people",
       "_tgt": "m1_intelligence_people_discover_title_matches",
@@ -32840,7 +33119,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L483",
+      "source_location": "L492",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_discover_people",
       "_tgt": "m1_intelligence_people_discover_company_sweep_people",
@@ -32900,7 +33179,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L331",
+      "source_location": "L340",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_brave_people",
       "_tgt": "m1_intelligence_people_discover_brave_query",
@@ -32912,7 +33191,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L351",
+      "source_location": "L360",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_brave_people",
       "_tgt": "m1_intelligence_people_discover_parse_linkedin_title",
@@ -32924,7 +33203,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L351",
+      "source_location": "L360",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_brave_people",
       "_tgt": "m1_intelligence_people_discover_strip_tags",
@@ -32936,7 +33215,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L481",
+      "source_location": "L490",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_discover_people",
       "_tgt": "m1_intelligence_people_discover_brave_people",
@@ -32948,7 +33227,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L423",
+      "source_location": "L432",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_duckduckgo_people",
       "_tgt": "m1_intelligence_people_discover_strip_tags",
@@ -32960,7 +33239,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L423",
+      "source_location": "L432",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_duckduckgo_people",
       "_tgt": "m1_intelligence_people_discover_parse_linkedin_title",
@@ -32972,19 +33251,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L384",
+      "source_location": "L393",
       "weight": 1.0,
-      "_src": "m1_intelligence_people_discover_rationale_384",
+      "_src": "m1_intelligence_people_discover_rationale_393",
       "_tgt": "m1_intelligence_people_discover_parse_linkedin_title",
       "source": "m1_intelligence_people_discover_parse_linkedin_title",
-      "target": "m1_intelligence_people_discover_rationale_384",
+      "target": "m1_intelligence_people_discover_rationale_393",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L485",
+      "source_location": "L494",
       "weight": 1.0,
       "_src": "m1_intelligence_people_discover_discover_people",
       "_tgt": "m1_intelligence_people_discover_duckduckgo_people",
@@ -32996,12 +33275,12 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
-      "source_location": "L466",
+      "source_location": "L475",
       "weight": 1.0,
-      "_src": "m1_intelligence_people_discover_rationale_466",
+      "_src": "m1_intelligence_people_discover_rationale_475",
       "_tgt": "m1_intelligence_people_discover_discover_people",
       "source": "m1_intelligence_people_discover_discover_people",
-      "target": "m1_intelligence_people_discover_rationale_466",
+      "target": "m1_intelligence_people_discover_rationale_475",
       "confidence_score": 1.0
     },
     {
@@ -33106,11 +33385,11 @@
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
       "source_location": "L216",
       "weight": 0.8,
-      "_src": "m1_intelligence_people_discover_rationale_384",
+      "_src": "m1_intelligence_people_discover_rationale_393",
       "_tgt": "hunter_client_hunterclient",
-      "confidence_score": 0.5,
-      "source": "m1_intelligence_people_discover_rationale_384",
-      "target": "hunter_client_hunterclient"
+      "source": "m1_intelligence_people_discover_rationale_393",
+      "target": "hunter_client_hunterclient",
+      "confidence_score": 0.5
     },
     {
       "relation": "uses",
@@ -33118,11 +33397,11 @@
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
       "source_location": "L217",
       "weight": 0.8,
-      "_src": "m1_intelligence_people_discover_rationale_384",
+      "_src": "m1_intelligence_people_discover_rationale_393",
       "_tgt": "prospeo_client_prospeoclient",
-      "confidence_score": 0.5,
-      "source": "m1_intelligence_people_discover_rationale_384",
-      "target": "prospeo_client_prospeoclient"
+      "source": "m1_intelligence_people_discover_rationale_393",
+      "target": "prospeo_client_prospeoclient",
+      "confidence_score": 0.5
     },
     {
       "relation": "uses",
@@ -33130,11 +33409,11 @@
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
       "source_location": "L216",
       "weight": 0.8,
-      "_src": "m1_intelligence_people_discover_rationale_466",
+      "_src": "m1_intelligence_people_discover_rationale_475",
       "_tgt": "hunter_client_hunterclient",
-      "confidence_score": 0.5,
-      "source": "m1_intelligence_people_discover_rationale_466",
-      "target": "hunter_client_hunterclient"
+      "source": "m1_intelligence_people_discover_rationale_475",
+      "target": "hunter_client_hunterclient",
+      "confidence_score": 0.5
     },
     {
       "relation": "uses",
@@ -33142,11 +33421,11 @@
       "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
       "source_location": "L217",
       "weight": 0.8,
-      "_src": "m1_intelligence_people_discover_rationale_466",
+      "_src": "m1_intelligence_people_discover_rationale_475",
       "_tgt": "prospeo_client_prospeoclient",
-      "confidence_score": 0.5,
-      "source": "m1_intelligence_people_discover_rationale_466",
-      "target": "prospeo_client_prospeoclient"
+      "source": "m1_intelligence_people_discover_rationale_475",
+      "target": "prospeo_client_prospeoclient",
+      "confidence_score": 0.5
     },
     {
       "relation": "contains",
@@ -41011,6 +41290,30 @@
     {
       "relation": "uses",
       "confidence": "INFERRED",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L216",
+      "weight": 0.8,
+      "_src": "m1_intelligence_people_discover_rationale_384",
+      "_tgt": "hunter_client_hunterclient",
+      "confidence_score": 0.5,
+      "source": "hunter_client_hunterclient",
+      "target": "m1_intelligence_people_discover_rationale_384"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L216",
+      "weight": 0.8,
+      "_src": "m1_intelligence_people_discover_rationale_466",
+      "_tgt": "hunter_client_hunterclient",
+      "confidence_score": 0.5,
+      "source": "hunter_client_hunterclient",
+      "target": "m1_intelligence_people_discover_rationale_466"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
       "source_file": "urap-engine/modules/m1_intelligence/enrichment.py",
       "source_location": "L17",
       "weight": 0.8,
@@ -41324,12 +41627,24 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L46",
+      "source_location": "L51",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient_parse_person",
       "_tgt": "prospeo_client_prospeoresult",
       "source": "prospeo_client_prospeoresult",
       "target": "prospeo_client_prospeoclient_parse_person",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_src": "prospeo_client_prospeoclient_parse_search_result",
+      "_tgt": "prospeo_client_prospeoresult",
+      "source": "prospeo_client_prospeoresult",
+      "target": "prospeo_client_prospeoclient_parse_search_result",
       "confidence_score": 1.0
     },
     {
@@ -41372,7 +41687,19 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L58",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_src": "prospeo_client_prospeoclient",
+      "_tgt": "prospeo_client_prospeoclient_parse_search_result",
+      "source": "prospeo_client_prospeoclient",
+      "target": "prospeo_client_prospeoclient_parse_search_result",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L88",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient",
       "_tgt": "prospeo_client_prospeoclient_find_email",
@@ -41384,13 +41711,37 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L84",
+      "source_location": "L114",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient",
       "_tgt": "prospeo_client_prospeoclient_domain_search",
       "source": "prospeo_client_prospeoclient",
       "target": "prospeo_client_prospeoclient_domain_search",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L217",
+      "weight": 0.8,
+      "_src": "m1_intelligence_people_discover_rationale_384",
+      "_tgt": "prospeo_client_prospeoclient",
+      "confidence_score": 0.5,
+      "source": "prospeo_client_prospeoclient",
+      "target": "m1_intelligence_people_discover_rationale_384"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "urap-engine/modules/m1_intelligence/people_discover.py",
+      "source_location": "L217",
+      "weight": 0.8,
+      "_src": "m1_intelligence_people_discover_rationale_466",
+      "_tgt": "prospeo_client_prospeoclient",
+      "confidence_score": 0.5,
+      "source": "prospeo_client_prospeoclient",
+      "target": "m1_intelligence_people_discover_rationale_466"
     },
     {
       "relation": "uses",
@@ -41420,7 +41771,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L61",
+      "source_location": "L91",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient_find_email",
       "_tgt": "prospeo_client_prospeoclient_is_configured",
@@ -41432,7 +41783,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L86",
+      "source_location": "L116",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient_domain_search",
       "_tgt": "prospeo_client_prospeoclient_is_configured",
@@ -41444,24 +41795,12 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L82",
+      "source_location": "L112",
       "weight": 1.0,
       "_src": "prospeo_client_prospeoclient_find_email",
       "_tgt": "prospeo_client_prospeoclient_parse_person",
       "source": "prospeo_client_prospeoclient_parse_person",
       "target": "prospeo_client_prospeoclient_find_email",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L108",
-      "weight": 1.0,
-      "_src": "prospeo_client_prospeoclient_domain_search",
-      "_tgt": "prospeo_client_prospeoclient_parse_person",
-      "source": "prospeo_client_prospeoclient_parse_person",
-      "target": "prospeo_client_prospeoclient_domain_search",
       "confidence_score": 1.0
     },
     {
@@ -41477,15 +41816,39 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L141",
+      "weight": 1.0,
+      "_src": "prospeo_client_prospeoclient_domain_search",
+      "_tgt": "prospeo_client_prospeoclient_parse_search_result",
+      "source": "prospeo_client_prospeoclient_parse_search_result",
+      "target": "prospeo_client_prospeoclient_domain_search",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "urap-engine/tier3/prospeo/client.py",
-      "source_location": "L85",
+      "source_location": "L64",
       "weight": 1.0,
-      "_src": "prospeo_client_rationale_85",
+      "_src": "prospeo_client_rationale_64",
+      "_tgt": "prospeo_client_prospeoclient_parse_search_result",
+      "source": "prospeo_client_prospeoclient_parse_search_result",
+      "target": "prospeo_client_rationale_64",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "urap-engine/tier3/prospeo/client.py",
+      "source_location": "L115",
+      "weight": 1.0,
+      "_src": "prospeo_client_rationale_115",
       "_tgt": "prospeo_client_prospeoclient_domain_search",
       "source": "prospeo_client_prospeoclient_domain_search",
-      "target": "prospeo_client_rationale_85",
+      "target": "prospeo_client_rationale_115",
       "confidence_score": 1.0
     },
     {

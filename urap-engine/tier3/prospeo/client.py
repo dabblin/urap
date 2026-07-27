@@ -37,11 +37,16 @@ class ProspeoClient:
         return bool(self.api_key)
 
     def _parse_person(self, person: dict, domain: str) -> Optional["ProspeoResult"]:
-        """Parse a person object from either enrich-person or search-person response."""
-        email = person.get("email") or (person.get("email_data") or {}).get("email")
+        """Parse an enriched person response that includes a revealed email."""
+        email_data = person.get("email") or person.get("email_data") or {}
+        email = email_data.get("email") if isinstance(email_data, dict) else email_data
         if not email:
             return None
-        verified_raw = (person.get("email_data") or {}).get("verification_status") or person.get("verification_status")
+        verified_raw = (
+            email_data.get("status") or email_data.get("verification_status")
+            if isinstance(email_data, dict)
+            else person.get("verification_status")
+        )
         verified = str(verified_raw).upper() in ("VALID", "VERIFIED")
         return ProspeoResult(
             email=email,
@@ -49,10 +54,35 @@ class ProspeoClient:
             confidence=person.get("confidence"),
             first_name=person.get("first_name"),
             last_name=person.get("last_name"),
-            title=person.get("job_title") or person.get("title"),
+            title=person.get("current_job_title") or person.get("job_title") or person.get("title"),
             company_domain=domain,
             linkedin_url=person.get("linkedin_url"),
             raw=person,
+        )
+
+    def _parse_search_result(self, result: dict, domain: str) -> Optional["ProspeoResult"]:
+        """Normalize the current Search Person `{person, company}` result shape."""
+        person = result.get("person") or {}
+        if not isinstance(person, dict):
+            return None
+        email_data = person.get("email") or {}
+        email = ""
+        verified = False
+        if isinstance(email_data, dict) and email_data.get("revealed"):
+            candidate = email_data.get("email") or ""
+            if "*" not in candidate:
+                email = candidate
+                verified = str(email_data.get("status") or "").upper() == "VERIFIED"
+        return ProspeoResult(
+            email=email,
+            verified=verified,
+            confidence=None,
+            first_name=person.get("first_name"),
+            last_name=person.get("last_name"),
+            title=person.get("current_job_title"),
+            company_domain=domain,
+            linkedin_url=person.get("linkedin_url"),
+            raw=result,
         )
 
     async def find_email(
@@ -82,7 +112,7 @@ class ProspeoClient:
         return self._parse_person(person, domain)
 
     async def domain_search(self, domain: str, limit: int = 10) -> list["ProspeoResult"]:
-        """Pull contacts at a domain via search-person + enrich in one pass."""
+        """Pull named contacts at a domain via Prospeo Search Person."""
         if not self._is_configured():
             return []
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -91,8 +121,11 @@ class ProspeoClient:
                 headers=self._headers,
                 json={
                     "filters": {
-                        # Prospeo expects a list value here, not {"value": ...}
-                        "company_website": [domain],
+                        "company": {
+                            "websites": {
+                                "include": [domain],
+                            },
+                        },
                     },
                     "page": 1,
                 },
@@ -100,12 +133,12 @@ class ProspeoClient:
         if resp.status_code != 200:
             return []
         data = resp.json()
-        persons = data.get("persons") or data.get("results") or data.get("data") or []
-        if not isinstance(persons, list):
+        rows = data.get("results") or []
+        if not isinstance(rows, list):
             return []
         results = []
-        for p in persons[:limit]:
-            parsed = self._parse_person(p, domain)
+        for row in rows[:limit]:
+            parsed = self._parse_search_result(row, domain)
             if parsed:
                 results.append(parsed)
         return results

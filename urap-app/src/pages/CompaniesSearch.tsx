@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ENGINE, TENANT } from '../lib/config.js';
+import { ENGINE, TENANT, API_KEY } from '../lib/config.js';
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -102,6 +102,14 @@ function fmtDate(iso: string): string {
   } catch { return iso; }
 }
 
+function apiHeaders(includeJson = false): Record<string, string> {
+  return {
+    ...(includeJson ? { 'Content-Type': 'application/json' } : {}),
+    'x-api-key': API_KEY,
+    'x-tenant-id': TENANT,
+  };
+}
+
 // ── ComposeModal ──────────────────────────────────────────────────────────────
 
 interface ComposeModalProps {
@@ -127,7 +135,7 @@ function ComposeModal({ toEmail, toName, company, onClose, onSent, onDrip }: Com
     try {
       const resp = await fetch(`${ENGINE}/outreach/email/send`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body: JSON.stringify({
           lead_id:    toEmail,
           to_email:   toEmail,
@@ -271,7 +279,7 @@ function SequenceBuilderModal({ toEmail, toName, company, onClose, onQueued }: S
       // 1. Create sequence template
       const createResp = await fetch(`${ENGINE}/outreach/sequence/create`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body: JSON.stringify({
           name: seqName,
           from_email: fromEmail,
@@ -285,7 +293,7 @@ function SequenceBuilderModal({ toEmail, toName, company, onClose, onQueued }: S
       // 2. Enroll contact
       const enrollResp = await fetch(`${ENGINE}/outreach/sequence/enroll`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body: JSON.stringify({
           sequence_id: created.sequence_id,
           to_email:    toEmail,
@@ -428,7 +436,7 @@ function AutopilotModal({ onClose }: AutopilotModalProps) {
   const [error,      setError]      = useState('');
 
   useEffect(() => {
-    fetch(`${ENGINE}/outreach/sequences`, { headers: { 'x-tenant-id': TENANT } })
+    fetch(`${ENGINE}/outreach/sequences`, { headers: apiHeaders() })
       .then(r => r.json())
       .then(d => { setSequences(d.sequences ?? []); if (d.sequences?.length) setSeqId(d.sequences[0].id); })
       .catch(() => {});
@@ -441,7 +449,7 @@ function AutopilotModal({ onClose }: AutopilotModalProps) {
     try {
       const resp = await fetch(`${ENGINE}/outreach/autopilot/run-icp`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body: JSON.stringify({ keywords, location, industry, limit, sequence_id: seqId }),
       });
       if (!resp.ok) throw new Error(await resp.text());
@@ -1202,7 +1210,7 @@ export function CompaniesSearch() {
       if (industry) body.industry = industry;
       const resp = await fetch(`${ENGINE}/companies/search`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body:    JSON.stringify(body),
       });
       if (!resp.ok) throw new Error(`Engine ${resp.status}: ${await resp.text()}`);
@@ -1251,7 +1259,7 @@ export function CompaniesSearch() {
       const cleanWebsite = isListingDomain(c.website || '') ? '' : (c.website || '');
       const resp = await fetch(`${ENGINE}/companies/contact`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body:    JSON.stringify({ name: c.name, domain: cleanDomain, website: cleanWebsite, phone: c.phone, yelp_id: c.yelp_id || '' }),
       });
       if (!resp.ok) throw new Error('enrich failed');
@@ -1328,7 +1336,7 @@ export function CompaniesSearch() {
     setListsLoading(true);
     try {
       const resp = await fetch(`${ENGINE}/companies/lists`, {
-        headers: { 'x-tenant-id': TENANT },
+        headers: apiHeaders(),
       });
       if (!resp.ok) return;
       const d = await resp.json();
@@ -1379,7 +1387,7 @@ export function CompaniesSearch() {
 
       const resp = await fetch(`${ENGINE}/companies/list/save`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant-id': TENANT },
+        headers: apiHeaders(true),
         body:    JSON.stringify({ name, items }),
       });
       if (!resp.ok) throw new Error('save failed');
@@ -1402,7 +1410,7 @@ export function CompaniesSearch() {
     setListItemsLoading(true);
     try {
       const resp = await fetch(`${ENGINE}/companies/list/${list.id}`, {
-        headers: { 'x-tenant-id': TENANT },
+        headers: apiHeaders(),
       });
       if (!resp.ok) return;
       const d = await resp.json();
@@ -1416,7 +1424,7 @@ export function CompaniesSearch() {
     try {
       await fetch(`${ENGINE}/companies/list/${id}`, {
         method:  'DELETE',
-        headers: { 'x-tenant-id': TENANT },
+        headers: apiHeaders(),
       });
       if (expandedList?.id === id) {
         setExpandedList(null);
