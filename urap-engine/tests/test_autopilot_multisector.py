@@ -4,7 +4,20 @@ import pytest
 
 from modules.m3_agents import warp_mode
 from modules.m3_agents.warp_mode import WarpLead, WarpModeAgent
-from modules.m5_api.autopilot_runner import AutopilotRunner
+from modules.m5_api.autopilot_runner import (
+    DEMO_CTA_URL,
+    AutopilotRunner,
+    build_outreach_html,
+)
+
+
+def test_outreach_html_has_one_explicit_demo_link():
+    rendered = build_outreach_html("<p>Personalized body.</p>")
+
+    assert rendered.count("<a ") == 1
+    assert f'href="{DEMO_CTA_URL}"' in rendered
+    assert "Hear how the AI handles an incoming call" in rendered
+    assert "dabblin.com | 703.344.8307" in rendered
 
 
 @pytest.mark.asyncio

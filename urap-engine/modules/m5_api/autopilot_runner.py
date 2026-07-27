@@ -13,6 +13,27 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
 UNSUBSCRIBE_PAUSE_THRESHOLD = 0.05   # auto-pause if >5% unsubscribe rate in last run
 DEFAULT_DAILY_SEND_LIMIT    = 50
+DEMO_CTA_URL = (
+    "https://dabblin.com/demo/"
+    "?utm_source=urap&utm_medium=email&utm_campaign=autopilot&utm_content=demo_cta"
+)
+
+
+def build_outreach_html(body_html: str) -> str:
+    """Add one explicit tracked CTA and the sender signature."""
+    cta = (
+        '<p><a href="'
+        f"{DEMO_CTA_URL}"
+        '" style="color:#2563eb; font-weight:600;">'
+        "Hear how the AI handles an incoming call"
+        "</a></p>"
+    )
+    signature = """<br><br>
+<p style="margin:0; font-size:14px; color:#333;"><strong>Dennis Day II</strong><br>
+<span style="color:#666;">CAIO, Dabblin Cloud Technologies</span><br>
+dabblin.com | 703.344.8307</p>
+"""
+    return f"{body_html}{cta}{signature}"
 
 
 def _db():
@@ -444,19 +465,13 @@ class AutopilotRunner:
         sent = failed = 0
         send_records: list[dict] = []
         
-        signature = f"""<br><br>
-<p style="margin:0; font-size:14px; color:#333;"><strong>Dennis Day II</strong><br>
-<span style="color:#666;">CAIO, Dabblin Cloud Technologies</span><br>
-<a href="https://dabblin.com" style="color:#6366f1;">dabblin.com</a> | 703.344.8307</p>
-"""
-        
         for g in generated:
             email = (g.get("email") or "").strip()
             if not email:
                 continue
                 
             base_html = g.get("body_html") or ""
-            full_html = base_html + signature if base_html else signature
+            full_html = build_outreach_html(base_html)
             
             result = await svc.send_single(
                 lead_id=g.get("lead_id") or str(_uuid.uuid4()),

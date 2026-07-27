@@ -96,7 +96,8 @@ Rules:
 - Body: 3 short paragraphs, under 150 words total
 - No generic opener ("I hope this finds you well", "My name is...")
 - First line references something specific about their role or company
-- Clear single CTA: propose a 15-min call this week
+- End by inviting them to hear the live demo; do not include a URL or hyperlink
+- Do not ask for a meeting in this first email
 - Tone: direct, peer-to-peer, no hype
 
 Return valid JSON only: {{"subject": "...", "body_html": "<p>...</p><p>...</p><p>...</p>"}}"""
@@ -138,6 +139,8 @@ Draft Body:
 Review criteria:
 - If it's specific, concise, and has a clear CTA → return it unchanged
 - Fix generic phrases, weak openers, or vague CTAs
+- The CTA should invite the lead to hear the live demo without including a link;
+  the platform appends the tracked demo link after review
 - Keep the same structure and word count
 - Preserve HTML paragraph tags
 
@@ -187,7 +190,7 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
             f"<p>Hi {first},</p>"
             f"<p>I came across {company} and wanted to reach out — "
             f"we help businesses like yours with {value_prop}.</p>"
-            f"<p>Worth a 15-minute call this week to see if it's relevant?</p>"
+            f"<p>Worth hearing a short example of how it handles an incoming call?</p>"
         )
         return (subject, body_html)
 
