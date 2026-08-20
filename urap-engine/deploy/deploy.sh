@@ -63,11 +63,16 @@ CLOUDBUILD
 echo "==> Deploying to Cloud Run..."
 
 # Load env vars from .env if present (never bake secrets in image)
+#
+# Pairs are joined with '|' and handed to gcloud using its custom-delimiter
+# syntax (^|^). A plain comma join silently corrupts every variable after any
+# value that itself contains a comma — TWILIO_REGIONAL_NUMBERS is exactly that
+# shape ("US:+1...,CA:+1..."), so a comma join would break Twilio setup.
+ENV_DELIM="|"
 ENV_VARS=""
 if [[ -f "${ENGINE_ROOT}/.env" ]]; then
-  # Convert .env to comma-separated KEY=VALUE pairs, skip blanks and comments
   ENV_VARS=$(grep -v '^\s*#' "${ENGINE_ROOT}/.env" | grep -v '^\s*$' | grep '=' | \
-             sed 's/[[:space:]]*$//' | tr '\n' ',' | sed 's/,$//')
+             sed 's/[[:space:]]*$//' | tr '\n' "${ENV_DELIM}" | sed "s/${ENV_DELIM}\$//")
 fi
 
 DEPLOY_ARGS=(
@@ -85,7 +90,7 @@ DEPLOY_ARGS=(
 )
 
 if [[ -n "${ENV_VARS}" ]]; then
-  DEPLOY_ARGS+=(--set-env-vars "${ENV_VARS}")
+  DEPLOY_ARGS+=(--set-env-vars "^${ENV_DELIM}^${ENV_VARS}")
 fi
 
 gcloud "${DEPLOY_ARGS[@]}"
