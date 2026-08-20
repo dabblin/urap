@@ -12,6 +12,7 @@ import { WarpMode } from './pages/WarpMode.js';
 import { AutoPilot } from './pages/AutoPilot.js';
 import { ReplyIntel } from './pages/ReplyIntel.js';
 import { Calling } from './pages/Calling.js';
+import { ReverseLookup } from './pages/ReverseLookup.js';
 import { CompaniesSearch } from './pages/CompaniesSearch.js';
 import { Integrations } from './pages/Integrations.js';
 import { ApiKeys } from './pages/ApiKeys.js';
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/autopilot" element={<AutoPilot />} />
               <Route path="/reply-intel" element={<ReplyIntel />} />
               <Route path="/calling" element={<Calling />} />
+              <Route path="/reverse-lookup" element={<ReverseLookup />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/api-keys" element={<ApiKeys />} />
               <Route path="/bulk-credits" element={<BulkEnrich />} />

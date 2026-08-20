@@ -16,3 +16,5 @@ stripe==10.5.0
 # Sprint 7 — E2E testing
 pytest==8.3.0
 pytest-asyncio==0.24.0
+# Reverse Phone Lookup — offline NANP/E.164 parsing + geocoding
+phonenumbers==8.13.52

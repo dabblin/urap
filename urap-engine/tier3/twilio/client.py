@@ -165,3 +165,43 @@ def send_sms(
 
 def is_configured() -> bool:
     return bool(ACCOUNT_SID and AUTH_TOKEN and FROM_NUMBER)
+
+
+# ── Lookup v2 — reverse phone intelligence ────────────────────────────────────
+
+LOOKUP_BASE = "https://lookups.twilio.com/v2/PhoneNumbers"
+
+# Packages billed per lookup. caller_name is US-only (CNAM).
+LOOKUP_FIELDS = ("line_type_intelligence", "caller_name")
+
+
+def lookup_is_configured() -> bool:
+    """Lookup only needs the credential pair — no outbound number required."""
+    return bool(ACCOUNT_SID and AUTH_TOKEN)
+
+
+async def lookup_number(e164: str, fields: tuple[str, ...] = LOOKUP_FIELDS) -> dict:
+    """Twilio Lookup v2 — carrier, line type, and CNAM caller name.
+
+    Returns {ok, data, error}. Never raises: the caller treats this as one
+    layer of a waterfall and must survive an unconfigured or failing provider.
+    """
+    if not lookup_is_configured():
+        return {"ok": False, "data": {}, "error": "TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not set"}
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{LOOKUP_BASE}/{e164}",
+                params={"Fields": ",".join(fields)},
+                auth=(ACCOUNT_SID, AUTH_TOKEN),
+            )
+    except Exception as exc:
+        logger.error("[twilio] lookup_number transport error: %s", exc)
+        return {"ok": False, "data": {}, "error": str(exc)}
+
+    if resp.status_code != 200:
+        return {"ok": False, "data": {}, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+
+    return {"ok": True, "data": resp.json(), "error": ""}

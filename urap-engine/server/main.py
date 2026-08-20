@@ -29,6 +29,7 @@ from modules.m5_api.autopilot_runner import AutopilotRunner
 from modules.m4_inbound.marketplace_router import MarketplaceRouter
 from modules.m4_inbound.race_agents import RaceAuction
 from modules.m1_intelligence.company_search import search_companies
+from modules.m1_intelligence.reverse_phone import ReversePhoneService
 
 app = FastAPI(title="URAP Engine", version="0.1.0")
 
@@ -51,6 +52,7 @@ _bulk_enrich = BulkEnrichRunner()
 _autopilot = AutopilotRunner()
 _marketplace = MarketplaceRouter()
 _race = RaceAuction()
+_reverse_phone = ReversePhoneService()
 
 
 # ── Request models ────────────────────────────────────────────────────────────
@@ -203,6 +205,18 @@ class CompanySearchRequest(BaseModel):
     location: Optional[str] = None
     industry: Optional[str] = None
     limit:    int = 25
+
+
+class ReversePhoneRequest(BaseModel):
+    number:  str
+    country: Optional[str] = "US"
+    deep:    bool = False        # adds the billed public-web OSINT layer
+
+
+class ReversePhoneBatchRequest(BaseModel):
+    numbers: list[str]
+    country: Optional[str] = "US"
+    deep:    bool = False
 
 
 class PeopleSearchRequest(BaseModel):
@@ -400,6 +414,37 @@ async def company_contact_batch(body: CompanyContactBatchRequest, x_tenant_id: s
         max_parallel=min(body.max_parallel, 10),
     )
     return {"results": results, "count": len(results)}
+
+
+# ── Reverse Phone Lookup ──────────────────────────────────────────────────────
+
+@app.post("/lookup/phone", dependencies=[Depends(require_api_key)])
+async def reverse_phone_lookup(body: ReversePhoneRequest, x_tenant_id: str = Header(...)):
+    """Identify the owner of a phone number across internal records, carrier
+    data (Twilio CNAM / line type), and — with deep=true — the public web."""
+    return await _reverse_phone.lookup(
+        number=body.number,
+        country=body.country or "US",
+        deep=body.deep,
+    )
+
+
+@app.post("/lookup/phone/batch", dependencies=[Depends(require_api_key)])
+async def reverse_phone_batch(body: ReversePhoneBatchRequest, x_tenant_id: str = Header(...)):
+    numbers = body.numbers[:50]
+    sem = asyncio.Semaphore(5)
+
+    async def _one(num: str) -> dict:
+        async with sem:
+            try:
+                return await _reverse_phone.lookup(
+                    number=num, country=body.country or "US", deep=body.deep
+                )
+            except Exception as exc:
+                return {"input": num, "valid": False, "error": str(exc)}
+
+    results = await asyncio.gather(*(_one(n) for n in numbers))
+    return {"results": list(results), "count": len(results)}
 
 
 # ── Sprint B — List Management ────────────────────────────────────────────────

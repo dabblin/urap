@@ -40,6 +40,9 @@ registerTool({ id: 'campaigns', label: 'Campaigns', pillar: 'engagement', icon: 
 // Sprint 9B — Campaign Landing Pages
 registerTool({ id: 'landing-pages', label: 'Landing Pages', pillar: 'engagement', icon: '🌐', route: '/landing-pages', sprint: 9 });
 
+// Sprint 10 — Reverse Phone Lookup
+registerTool({ id: 'reverse-lookup', label: 'Reverse Lookup', pillar: 'data', icon: '📇', route: '/reverse-lookup', sprint: 10 });
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
