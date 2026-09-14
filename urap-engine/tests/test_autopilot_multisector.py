@@ -15,7 +15,7 @@ def test_outreach_html_has_one_explicit_demo_link():
     rendered = build_outreach_html("<p>Personalized body.</p>")
 
     assert rendered.count("<a ") == 1
-    assert f'href="{DEMO_CTA_URL}"' in rendered
+    assert DEMO_CTA_URL.replace("&", "&amp;") in rendered
     assert "Hear how the AI handles an incoming call" in rendered
     assert "dabblin.com | 703.344.8307" in rendered
 
@@ -72,7 +72,7 @@ async def test_multisector_run_sources_and_keeps_every_sector(monkeypatch):
     monkeypatch.setattr(runner, "_source_leads", source_leads)
     monkeypatch.setattr(WarpModeAgent, "run_job", run_job)
 
-    result = await runner.run("dev-tenant")
+    result = await runner._run_fresh("dev-tenant")
 
     assert set(sourced_sectors) == set(sectors)
     assert len(captured["leads"]) == 120

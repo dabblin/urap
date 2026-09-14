@@ -26,6 +26,7 @@ import httpx
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from modules.m1_intelligence.enrichment import EnrichmentService
+from modules.m2_outreach.industry_video import resolve_sector
 from tier3.telegram.client import notify_warp_job_done
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"  # gemini-2.0-flash retired by Google
@@ -45,6 +46,7 @@ class WarpLead:
     subject: str
     body_html: str
     copy_status: str  # "generated" | "reviewed" | "fallback" | "error"
+    sector: str = ""
 
 
 @dataclass
@@ -88,15 +90,15 @@ Lead:
 
 ICP Context:
 - Target Role: {icp.get('title', '')}
-- Industry: {icp.get('industry', '')}
+- Industry: {lead.get('_autopilot_sector') or lead.get('sector') or icp.get('industry', '')}
 - Value Prop: {icp.get('value_prop', 'AI-powered revenue acceleration that cuts SDR overhead by 60%')}
 
 Rules:
 - Subject: 6–8 words, no emojis, curiosity-driven, no "quick" or "just"
 - Body: 3 short paragraphs, under 150 words total
 - No generic opener ("I hope this finds you well", "My name is...")
-- First line references something specific about their role or company
-- End by inviting them to hear the live demo; do not include a URL or hyperlink
+- First line references their business type and its missed-call problem; do not invent facts, results, or claim you researched them
+- End by inviting them to watch the business-specific video example; do not include a URL or hyperlink
 - Do not ask for a meeting in this first email
 - Tone: direct, peer-to-peer, no hype
 
@@ -139,7 +141,7 @@ Draft Body:
 Review criteria:
 - If it's specific, concise, and has a clear CTA → return it unchanged
 - Fix generic phrases, weak openers, or vague CTAs
-- The CTA should invite the lead to hear the live demo without including a link;
+- The CTA should invite the lead to watch the business-specific video without including a link;
   the platform appends the tracked demo link after review
 - Keep the same structure and word count
 - Preserve HTML paragraph tags
@@ -190,7 +192,7 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
             f"<p>Hi {first},</p>"
             f"<p>I came across {company} and wanted to reach out — "
             f"we help businesses like yours with {value_prop}.</p>"
-            f"<p>Worth hearing a short example of how it handles an incoming call?</p>"
+            f"<p>Worth watching a short example of how this could help your business?</p>"
         )
         return (subject, body_html)
 
@@ -214,6 +216,7 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
             subject=subject,
             body_html=body_html,
             copy_status=copy_status,
+            sector=resolve_sector(lead.get("_autopilot_sector", ""), lead.get("sector", ""), lead.get("company", "")),
         )
 
     # ── Job runner ────────────────────────────────────────────────────────────
@@ -280,6 +283,7 @@ Return valid JSON only: {{"subject": "...", "body_html": "..."}}"""
                     "body_preview": wl.body_html[:200],
                     "body_html": wl.body_html,
                     "copy_status": wl.copy_status,
+                    "sector": wl.sector,
                 }
                 for wl in warp_leads
             ],

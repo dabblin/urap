@@ -16,9 +16,22 @@ interface AutopilotConfig {
     sequences_queued: number;
     skipped_deduped: number;
     sector_stats?: Record<string, number>;
+    followup_stats?: { sent?: number; suppressed?: number; held?: number | boolean; error?: string };
     paused: boolean;
     pause_reason: string;
   };
+}
+
+interface ClickFollowup {
+  id: string;
+  to_email: string;
+  company: string;
+  sector: string;
+  clicked_at: string;
+  next_send_at: string;
+  step: number;
+  status: string;
+  reason: string;
 }
 
 interface MarketplaceOption {
@@ -89,15 +102,38 @@ export function AutoPilot() {
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [sends, setSends] = useState<AutopilotSend[]>([]);
+  const [followups, setFollowups] = useState<ClickFollowup[]>([]);
+  const [followupError, setFollowupError] = useState('');
+  const [syncingClicks, setSyncingClicks] = useState(false);
   const [selectedSend, setSelectedSend] = useState<AutopilotSend | null>(null);
   const [sendPage, setSendPage] = useState(1);
   const [sendPageSize, setSendPageSize] = useState(25);
 
-  useEffect(() => { fetchConfig(); fetchMarketplaces(); fetchSends(); }, []);
+  useEffect(() => { fetchConfig(); fetchMarketplaces(); fetchSends(); fetchFollowups(); }, []);
   useEffect(() => {
     const lastPage = Math.max(1, Math.ceil(sends.length / sendPageSize));
     setSendPage(page => Math.min(page, lastPage));
   }, [sends.length, sendPageSize]);
+
+  async function fetchFollowups() {
+    try {
+      const res = await fetch(`${ENGINE}/autopilot/followups`, { headers: headers() });
+      if (!res.ok) throw new Error('Could not load click follow-ups.');
+      const data = await res.json();
+      setFollowups(data.followups || []);
+      setFollowupError('');
+    } catch (error) { setFollowupError(String(error)); }
+  }
+
+  async function syncClicks() {
+    setSyncingClicks(true);
+    try {
+      const res = await fetch(`${ENGINE}/autopilot/followups/sync`, { method: 'POST', headers: headers() });
+      if (!res.ok) throw new Error('Click sync failed. No emails were sent.');
+      await fetchFollowups();
+    } catch (error) { setFollowupError(String(error)); }
+    finally { setSyncingClicks(false); }
+  }
 
   async function fetchSends() {
     try {
@@ -171,6 +207,7 @@ export function AutoPilot() {
       setLastRun(data);
       await fetchConfig();
       await fetchSends();
+      await fetchFollowups();
     } catch {/* silent */} finally {
       setRunning(false);
     }
@@ -382,6 +419,34 @@ export function AutoPilot() {
             )}
           </div>
         )}
+
+        <div className="rounded border border-gray-800 bg-gray-900 overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <div>
+              <h3 className="text-sm font-medium text-white">Website click follow-ups</h3>
+              <p className="text-xs text-gray-400 mt-1">{config?.icp.click_followups ? 'Active' : 'Paused'} · 1 day after a click, then 3 days after the first follow-up. Runs at 8 AM ET within the daily limit.</p>
+              <p className="text-xs text-gray-500 mt-1">Replies and opt-outs stop the sequence. Clicks indicate interest; they do not confirm a video was watched.</p>
+            </div>
+            <button onClick={syncClicks} disabled={syncingClicks} className="shrink-0 rounded bg-gray-800 px-3 py-2 text-xs text-gray-200 disabled:opacity-40">
+              {syncingClicks ? 'Syncing…' : 'Sync clicks (no send)'}
+            </button>
+          </div>
+          {config?.last_run_stats?.followup_stats?.error && <p role="alert" className="px-4 pb-3 text-xs text-amber-400">Follow-ups held: {config.last_run_stats.followup_stats.error}</p>}
+          {followupError && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{followupError}</p>}
+          <div className="max-h-64 overflow-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="text-gray-500"><tr><th className="p-3">Business / email</th><th>Industry</th><th>Progress</th><th>Next eligible</th><th>Status</th></tr></thead>
+              <tbody>{followups.map(row => <tr key={row.id} className="border-t border-gray-800 text-gray-300">
+                <td className="p-3">{row.company || row.to_email}<div className="text-gray-500">{row.company ? row.to_email : ''}</div></td>
+                <td>{row.sector.replace(/_/g, ' ') || 'General demo'}</td>
+                <td>{row.step} / 2 sent</td>
+                <td>{row.status === 'pending' ? new Date(row.next_send_at).toLocaleString() : '—'}</td>
+                <td title={row.reason}>{row.status}<div className="max-w-48 text-gray-500">{row.reason}</div></td>
+              </tr>)}</tbody>
+            </table>
+            {!followups.length && !followupError && <p className="p-4 text-xs text-gray-500">No website clickers enrolled yet. Sync imports the last 30 days of verified Brevo click events.</p>}
+          </div>
+        </div>
 
         {/* Send report */}
         <div className="rounded border border-gray-800 bg-gray-900 overflow-hidden">

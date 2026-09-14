@@ -22,3 +22,7 @@ tests/
 
 # Node (urap-app lives separately)
 node_modules/
+
+# Local interpreter environments are not runtime assets.
+.venv*/
+venv/

@@ -576,6 +576,10 @@ async def channel_event(body: ChannelEventRequest, x_tenant_id: str = Header(...
     handler = handlers.get(body.event)
     if not handler:
         return {"error": f"Unknown event: {body.event}"}
+    if body.event in ('reply', 'bounce', 'unsubscribe', 'meeting_set'):
+        from modules.m2_outreach.click_followups import ClickFollowups
+        from modules.m5_api.autopilot_runner import _db
+        ClickFollowups(_db()).suppress_lead(x_tenant_id, body.lead_id, body.event)
     result = handler()
     # Zapier dispatch — fire any registered webhooks for the new globalStatus
     new_status = (result or {}).get("global_status")
@@ -965,7 +969,25 @@ async def autopilot_run(x_tenant_id: str = Header(...)):
         "emails_sent": result.emails_sent,
         "emails_failed": result.emails_failed,
         "campaign_id": result.campaign_id,
+        "sector_stats": result.sector_stats,
+        "followup_stats": result.followup_stats,
     }
+
+
+@app.get("/autopilot/followups", dependencies=[Depends(require_api_key)])
+async def autopilot_followups(x_tenant_id: str = Header(...)):
+    from modules.m2_outreach.click_followups import ClickFollowups
+    from modules.m5_api.autopilot_runner import _db
+    rows = ClickFollowups(_db()).list(x_tenant_id)
+    return {"followups": rows, "count": len(rows)}
+
+
+@app.post("/autopilot/followups/sync", dependencies=[Depends(require_api_key)])
+async def autopilot_followups_sync(x_tenant_id: str = Header(...)):
+    """Import verified provider clicks without sending any email."""
+    from modules.m2_outreach.click_followups import ClickFollowups
+    from modules.m5_api.autopilot_runner import _db
+    return await ClickFollowups(_db()).sync(x_tenant_id)
 
 
 @app.get("/autopilot/sends", dependencies=[Depends(require_api_key)])

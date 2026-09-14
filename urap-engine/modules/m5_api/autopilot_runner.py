@@ -13,27 +13,20 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
 UNSUBSCRIBE_PAUSE_THRESHOLD = 0.05   # auto-pause if >5% unsubscribe rate in last run
 DEFAULT_DAILY_SEND_LIMIT    = 50
-DEMO_CTA_URL = (
-    "https://dabblin.com/demo/"
-    "?utm_source=urap&utm_medium=email&utm_campaign=autopilot&utm_content=demo_cta"
-)
+from modules.m2_outreach.industry_video import video_card, video_url, resolve_sector
+
+DEMO_CTA_URL = video_url('')
 
 
-def build_outreach_html(body_html: str) -> str:
-    """Add one explicit tracked CTA and the sender signature."""
-    cta = (
-        '<p><a href="'
-        f"{DEMO_CTA_URL}"
-        '" style="color:#2563eb; font-weight:600;">'
-        "Hear how the AI handles an incoming call"
-        "</a></p>"
-    )
+def build_outreach_html(body_html: str, sector: str = '', campaign: str = 'autopilot') -> str:
+    """Append one tracked video preview and the sender signature."""
     signature = """<br><br>
 <p style="margin:0; font-size:14px; color:#333;"><strong>Dennis Day II</strong><br>
 <span style="color:#666;">CAIO, Dabblin Cloud Technologies</span><br>
 dabblin.com | 703.344.8307</p>
+<p style="font-size:12px;color:#666;">Prefer no more emails? Reply STOP.</p>
 """
-    return f"{body_html}{cta}{signature}"
+    return f"{body_html}{video_card(sector, campaign)}{signature}"
 
 
 def _db():
@@ -55,6 +48,7 @@ class AutopilotRunResult:
     emails_failed: int = 0
     campaign_id: str = ""
     sector_stats: dict[str, int] = field(default_factory=dict)
+    followup_stats: dict = field(default_factory=dict)
 
 
 class AutopilotRunner:
@@ -146,6 +140,36 @@ class AutopilotRunner:
         return None
 
     async def run(self, tenant_id: str) -> AutopilotRunResult:
+        import uuid
+        token = str(uuid.uuid4())
+        acquired = _db().rpc('urap_acquire_autopilot', {'p_tenant': tenant_id, 'p_token': token}).execute().data
+        if not acquired:
+            return AutopilotRunResult(tenant_id, '', 0, 0, 0, False, 'An Autopilot run is already active')
+        followup_stats = {}
+        try:
+            config = self.get_config(tenant_id)
+            if config and config.get('enabled') and config.get('icp', {}).get('click_followups'):
+                from modules.m2_outreach.click_followups import ClickFollowups
+                if self._unsubscribe_rate(tenant_id) <= UNSUBSCRIBE_PAUSE_THRESHOLD:
+                    budget = max(0, config.get('daily_send_limit', DEFAULT_DAILY_SEND_LIMIT) - self._sent_today(tenant_id))
+                    try:
+                        followup_stats = await ClickFollowups(_db()).run(tenant_id, config['icp'], budget)
+                    except Exception as exc:
+                        logger.exception('[autopilot] click follow-ups held')
+                        followup_stats = {'error': str(exc), 'held': True}
+            result = await self._run_fresh(tenant_id)
+            result.followup_stats = followup_stats
+            self._log_run(tenant_id, {
+                'leads_found': result.leads_found, 'sequences_queued': result.sequences_queued,
+                'skipped_deduped': result.skipped_deduped, 'emails_sent': result.emails_sent,
+                'emails_failed': result.emails_failed, 'sector_stats': result.sector_stats,
+                'followup_stats': followup_stats, 'paused': result.paused, 'pause_reason': result.pause_reason,
+            })
+            return result
+        finally:
+            _db().table('urap_autopilot_leases').delete().eq('tenant_id', tenant_id).eq('token', token).execute()
+
+    async def _run_fresh(self, tenant_id: str) -> AutopilotRunResult:
         """
         Execute one Autopilot cycle for a tenant.
         Called by Cloud Scheduler (or POST /autopilot/run endpoint).
@@ -471,7 +495,8 @@ class AutopilotRunner:
                 continue
                 
             base_html = g.get("body_html") or ""
-            full_html = build_outreach_html(base_html)
+            sector = resolve_sector(g.get("sector", ""), g.get("company", ""))
+            full_html = build_outreach_html(base_html, sector)
             
             result = await svc.send_single(
                 lead_id=g.get("lead_id") or str(_uuid.uuid4()),
@@ -494,6 +519,9 @@ class AutopilotRunner:
                 "body_html":   full_html,
                 "status":      "sent" if result.success else "failed",
                 "provider":    result.provider,
+                "message_id":  result.message_id,
+                "sector":      sector,
+                "company":     g.get("company") or "",
                 "error":       result.error,
             })
             if result.success:
@@ -549,21 +577,21 @@ class AutopilotRunner:
             return 0.0
 
     def _sent_today(self, tenant_id: str) -> int:
-        """Count emails actually sent today by autopilot campaigns (throttle check)."""
+        """Count sent/reserved/failed attempts; failures still consume daily budget."""
         try:
             from datetime import date
             today = date.today().isoformat()
             result = (
                 _db().table("urap_campaigns")
-                .select("sent_count")
+                .select("sent_count,failed_count")
                 .eq("tenant_id", tenant_id)
                 .like("name", "Autopilot —%")
                 .gte("created_at", today)
                 .execute()
             )
-            return sum(r.get("sent_count", 0) for r in (result.data or []))
-        except Exception:
-            return 0
+            return sum((r.get("sent_count") or 0) + (r.get("failed_count") or 0) for r in (result.data or []))
+        except Exception as exc:
+            raise RuntimeError("Daily send accounting unavailable; run held") from exc
 
     def _log_run(self, tenant_id: str, stats: dict) -> None:
         try:

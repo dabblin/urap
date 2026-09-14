@@ -162,6 +162,11 @@ Return valid JSON only: {{"sentiment": "...", "confidence": 0.0, "summary": "one
         tenant_id: str = "",
     ) -> ParseResult:
         """Parse a reply, update channel state, fire alerts. Main agent method."""
+        # Stop automated click follow-ups before classification or external handoff.
+        if tenant_id:
+            from modules.m2_outreach.click_followups import ClickFollowups
+            ClickFollowups(self._db()).suppress_lead(tenant_id, lead_id, 'Inbound reply')
+
         sentiment, confidence, summary = await self._classify_sentiment(reply_text)
 
         # Map sentiment → CSM action → globalStatus

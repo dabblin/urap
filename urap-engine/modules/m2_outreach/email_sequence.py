@@ -85,6 +85,7 @@ class EmailSequenceService:
                 from_email=from_email, from_name=from_name,
                 subject=subject, body_html=body_html,
                 tag=tag,
+                reply_to=from_email,
             )
         if not result.success:
             result = await self.mailgun.send(
