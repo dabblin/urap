@@ -95,8 +95,8 @@ Cohesion: 0.02
 Nodes (140): BaseModel, Enum, create_discovery_call(), _get_service(), Tier 3 — Google Calendar: create discovery call events on meeting_set triggers., Create a 30-min discovery call event. Returns HTML link or '' on failure.      s, discover_contacts_batch(), Enrich a batch. Each dict needs: index, name, domain, website, phone. (+132 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.09
-Nodes (151): ChannelStateMachine, ReplyIntelligenceAgent, LeadRouterService, Handles inbound lead capture, ping-post distribution, and Twilio geo-routing., RaceAuction, CPL auction engine. Pings all configured marketplaces simultaneously,     picks, ApiKeyManager, AutopilotRunner (+143 more)
+Cohesion: 0.1
+Nodes (131): ChannelStateMachine, ReplyIntelligenceAgent, LeadRouterService, Handles inbound lead capture, ping-post distribution, and Twilio geo-routing., ApiKeyManager, AutopilotRunner, BulkEnrichRunner, ConsentLedgerService (+123 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.03
@@ -108,7 +108,7 @@ Nodes (49): CleanlistClient, CleanlistResult, Cleanlist.ai email verification cl
 
 ### Community 4 - "Community 4"
 Cohesion: 0.07
-Nodes (74): EmailSequenceService, WarpModeAgent, MarketplaceRouter, Routes enriched URAP contacts to external buyer marketplace webhooks., Disable autopilot for a tenant., Return autopilot config for a tenant.          Falls back to the AUTOPILOT_CONFI, Execute one Autopilot cycle for a tenant.         Called by Cloud Scheduler (or, Execute one Autopilot cycle for a tenant.         Called by Cloud Scheduler (or (+66 more)
+Nodes (73): EmailSequenceService, WarpModeAgent, MarketplaceRouter, Routes enriched URAP contacts to external buyer marketplace webhooks., Disable autopilot for a tenant., Return autopilot config for a tenant.          Falls back to the AUTOPILOT_CONFI, Execute one Autopilot cycle for a tenant.         Called by Cloud Scheduler (or, Execute one Autopilot cycle for a tenant.         Called by Cloud Scheduler (or (+65 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.05
@@ -120,19 +120,19 @@ Nodes (17): BrevoClient, Brevo (formerly Sendinblue) email sender — overflow p
 
 ### Community 7 - "Community 7"
 Cohesion: 0.07
-Nodes (22): Module III — Warp Mode AI Copilot.  Given an ICP, autonomously:   1. Queries the, Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Static template fallback when AI APIs are not configured., Run a full Warp Mode job: enrich → generate copy → store → alert.          icp k, Return recent Warp Mode jobs for this tenant, newest first., Generate draft subject + body via Gemini Flash. Returns ("", "") on failure., WarpJobResult, WarpLead (+14 more)
+Nodes (46): ReversePhoneService, RaceAuction, CPL auction engine. Pings all configured marketplaces simultaneously,     picks, ApiKeyCreateRequest, CompanyContactBatchItem, IntentScoreRequest, PeopleSearchRequest, Create a reusable drip sequence template. (+38 more)
 
 ### Community 8 - "Community 8"
+Cohesion: 0.07
+Nodes (22): Module III — Warp Mode AI Copilot.  Given an ICP, autonomously:   1. Queries the, Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Static template fallback when AI APIs are not configured., Run a full Warp Mode job: enrich → generate copy → store → alert.          icp k, Return recent Warp Mode jobs for this tenant, newest first., Generate draft subject + body via Gemini Flash. Returns ("", "") on failure., WarpJobResult, WarpLead (+14 more)
+
+### Community 9 - "Community 9"
 Cohesion: 0.08
 Nodes (31): _apollo_search(), _dedup_results(), _foursquare_search(), _google_places_search(), _hunter_domain(), _places_industry(), Company search — two modes:   1. Domain enrichment: domain provided → Hunter.io, Merge results from multiple sources, dedup by phone or name+location. (+23 more)
 
-### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (31): EnrichmentService, Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Static template fallback when AI APIs are not configured., Static template fallback when AI APIs are not configured., Static template fallback when AI APIs are not configured., Run a full Warp Mode job: enrich → generate copy → store → alert.          icp k (+23 more)
-
 ### Community 10 - "Community 10"
-Cohesion: 0.08
-Nodes (24): ReversePhoneService, BulkEnrichCsvRequest, CampaignPageCreateRequest, Create a reusable drip sequence template., Save or update webhook URL, API key, and CPL target for a marketplace., Save or update webhook URL, API key, and CPL target for a marketplace., Send a sample lead payload to a webhook URL and return the HTTP result., Return all landing pages for this tenant. (+16 more)
+Cohesion: 0.07
+Nodes (30): EnrichmentService, Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Refine draft via Claude Sonnet. Returns (subject, body_html, was_reviewed)., Static template fallback when AI APIs are not configured., Static template fallback when AI APIs are not configured., Static template fallback when AI APIs are not configured., Run a full Warp Mode job: enrich → generate copy → store → alert.          icp k (+22 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.1
@@ -325,11 +325,11 @@ Nodes (1): React Router v7
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `EnrichmentService` connect `Community 9` to `Community 0`, `Community 1`, `Community 3`, `Community 4`, `Community 7`, `Community 10`, `Community 11`, `Community 16`?**
+- **Why does `EnrichmentService` connect `Community 10` to `Community 0`, `Community 1`, `Community 3`, `Community 4`, `Community 7`, `Community 8`, `Community 11`, `Community 16`?**
   _High betweenness centrality (0.183) - this node is a cross-community bridge._
-- **Why does `WarpModeAgent` connect `Community 4` to `Community 0`, `Community 1`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 19`?**
+- **Why does `WarpModeAgent` connect `Community 4` to `Community 0`, `Community 1`, `Community 6`, `Community 7`, `Community 8`, `Community 10`, `Community 19`?**
   _High betweenness centrality (0.066) - this node is a cross-community bridge._
-- **Why does `ClickFollowups` connect `Community 0` to `Community 1`, `Community 4`, `Community 6`, `Community 9`, `Community 10`?**
+- **Why does `ClickFollowups` connect `Community 0` to `Community 1`, `Community 4`, `Community 6`, `Community 7`, `Community 10`?**
   _High betweenness centrality (0.059) - this node is a cross-community bridge._
 - **Are the 287 inferred relationships involving `EnrichmentService` (e.g. with `EnrichRequest` and `BulkEnrichRequest`) actually correct?**
   _`EnrichmentService` has 287 INFERRED edges - model-reasoned connections that need verification._
