@@ -8,6 +8,7 @@ import os
 import asyncio
 import uuid
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import httpx
 
@@ -66,6 +67,44 @@ async def _haiku_opener(lead: dict, api_key: str, client: httpx.AsyncClient) -> 
     return ""
 
 
+def _build_blocked_set(db, tenant_id: str, contacts: list) -> set:
+    """Return lowercase emails already sent to (90-day lookback) or unsubscribed."""
+    candidate_emails = [
+        (c.get("email") or "").strip().lower()
+        for c in contacts if (c.get("email") or "").strip()
+    ]
+    if not candidate_emails:
+        return set()
+    blocked: set = set()
+    try:
+        since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+        prior = (
+            db.table("urap_campaign_sends")
+            .select("to_email")
+            .eq("tenant_id", tenant_id)
+            .in_("to_email", candidate_emails)
+            .eq("status", "sent")
+            .gte("sent_at", since)
+            .execute()
+        )
+        blocked |= {r["to_email"].lower() for r in (prior.data or [])}
+    except Exception:
+        pass
+    try:
+        unsubs = (
+            db.table("urap_contacts")
+            .select("email")
+            .eq("tenant_id", tenant_id)
+            .eq("global_status", "unsubscribe")
+            .in_("email", candidate_emails)
+            .execute()
+        )
+        blocked |= {r["email"].lower() for r in (unsubs.data or [])}
+    except Exception:
+        pass
+    return blocked
+
+
 async def dispatch(
     *,
     campaign: dict,
@@ -83,6 +122,9 @@ async def dispatch(
     from_email    = campaign.get("from_email", "")
     from_name     = campaign.get("from_name", "") or ""
     company_link  = campaign.get("advertised_url", "") or ""
+
+    # ── 0. Build already-contacted blocklist ─────────────────────────────────
+    blocked_emails = _build_blocked_set(db, tenant_id, contacts)
 
     # ── 1. Generate personalized openers in parallel batches ─────────────────
     openers: list[str] = [""] * len(contacts)
@@ -104,6 +146,9 @@ async def dispatch(
     for idx, contact in enumerate(contacts):
         email = (contact.get("email") or "").strip()
         if not email:
+            skipped += 1
+            continue
+        if email.lower() in blocked_emails:
             skipped += 1
             continue
 
@@ -177,6 +222,12 @@ async def dispatch_stream(
 
     yield json.dumps({"event": "start", "total": len(contacts)}) + "\n"
 
+    # ── 0. Dedup check ────────────────────────────────────────────────────────
+    yield json.dumps({"event": "status", "message": "Checking for previously contacted leads..."}) + "\n"
+    blocked_emails = _build_blocked_set(db, tenant_id, contacts)
+    if blocked_emails:
+        yield json.dumps({"event": "status", "message": f"Skipping {len(blocked_emails)} already-contacted address(es)."}) + "\n"
+
     # ── 1. Generate personalized openers in parallel batches ─────────────────
     openers: list[str] = [""] * len(contacts)
     if ai_personalize and api_key:
@@ -202,6 +253,10 @@ async def dispatch_stream(
         if not email:
             skipped += 1
             yield json.dumps({"event": "skipped", "email": "(no email)", "name": name, "reason": "Missing email address"}) + "\n"
+            continue
+        if email.lower() in blocked_emails:
+            skipped += 1
+            yield json.dumps({"event": "skipped", "email": email, "name": name, "reason": "Already contacted (within 90 days)"}) + "\n"
             continue
 
         yield json.dumps({"event": "sending", "email": email, "name": name}) + "\n"
