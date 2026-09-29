@@ -551,7 +551,7 @@ async def company_search(body: CompanySearchRequest, x_tenant_id: str = Header(.
         keywords=body.keywords or "",
         location=body.location or "",
         industry=body.industry or "",
-        limit=min(body.limit, 500),
+        limit=min(body.limit, 2000),
         diag=diag,
     )
 

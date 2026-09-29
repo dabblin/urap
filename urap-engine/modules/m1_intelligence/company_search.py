@@ -113,6 +113,66 @@ async def _apollo_search(
         return []
 
 
+def _quad(r: tuple) -> list[tuple]:
+    """Split a (lo_lat, lo_lon, hi_lat, hi_lon) box into four equal quadrants."""
+    mid_la = (r[0] + r[2]) / 2
+    mid_lo = (r[1] + r[3]) / 2
+    return [
+        (r[0], r[1], mid_la, mid_lo),
+        (r[0], mid_lo, mid_la, r[3]),
+        (mid_la, r[1], r[2], mid_lo),
+        (mid_la, mid_lo, r[2], r[3]),
+    ]
+
+
+_STATE_RE = re.compile(r",\s*([A-Z]{2})(?:\s+\d{5})?(?:,\s*USA)?\s*$")
+
+
+def _state_of(address: str) -> str:
+    m = _STATE_RE.search((address or "").strip())
+    return m.group(1) if m else ""
+
+
+async def _resolve_viewport(client, location: str, field_mask: str) -> tuple | None:
+    """Look the place itself up and return (bbox, state_code).
+
+    The viewport is a rectangle, not the city outline: the box for New York City
+    reaches well into New Jersey, so ~39% of a tiled sweep came back as Elizabeth
+    and Carteret businesses. The state code lets those be filtered back out.
+    """
+    if not location.strip():
+        return None
+    try:
+        for attempt in range(3):
+            r = await client.post(
+                "https://places.googleapis.com/v1/places:searchText",
+                json={"textQuery": location, "maxResultCount": 1},
+                headers={
+                    "Content-Type":     "application/json",
+                    "X-Goog-Api-Key":   GOOGLE_PLACES_API_KEY,
+                    "X-Goog-FieldMask": field_mask,
+                },
+            )
+            if r.status_code != 429:
+                break
+            await asyncio.sleep(2 * (attempt + 1))
+        if r.status_code != 200:
+            return None
+        places = r.json().get("places") or []
+        if not places:
+            return None
+        vp = places[0].get("viewport") or {}
+        lo, hi = vp.get("low") or {}, vp.get("high") or {}
+        if not lo or not hi:
+            return None
+        box = (lo["latitude"], lo["longitude"], hi["latitude"], hi["longitude"])
+        if not (box[2] > box[0] and box[3] > box[1]):
+            return None
+        return box, _state_of(places[0].get("formattedAddress", ""))
+    except Exception:
+        return None
+
+
 # ── Google Places — local/SMB discovery search ───────────────────────────────
 
 async def _google_places_search(
@@ -144,6 +204,7 @@ async def _google_places_search(
         "places.location",
         "nextPageToken",
     ])
+    fields_viewport = "places.viewport,places.formattedAddress"
 
     def _place_key(p: dict) -> str:
         ph = re.sub(r"\D", "", p.get("nationalPhoneNumber", "") or "")[-10:]
@@ -151,6 +212,13 @@ async def _google_places_search(
 
     try:
         err: list[str] = []
+        calls = {"n": 0}      # billed request count, reported back for cost visibility
+        throttled = {"n": 0}  # times we backed off on a per-minute quota rejection
+
+        # Deep tiling can queue well over a hundred cells. Firing them at once trips
+        # Google's per-minute SearchText quota and the run comes back half empty, so
+        # cap in-flight requests and back off when the quota does push back.
+        gate = asyncio.Semaphore(8)
 
         async def _walk(client, text: str, rect: tuple | None, want: int) -> list[dict]:
             """searchText returns at most 20 per page and 60 per query. Walk
@@ -166,17 +234,27 @@ async def _google_places_search(
                     }}
                 if page_token:
                     body["pageToken"] = page_token
-                r = await client.post(
-                    "https://places.googleapis.com/v1/places:searchText",
-                    json=body,
-                    headers={
-                        "Content-Type":    "application/json",
-                        "X-Goog-Api-Key":  GOOGLE_PLACES_API_KEY,
-                        "X-Goog-FieldMask": fields,
-                    },
-                )
-                if r.status_code != 200:
-                    err.append(f"HTTP {r.status_code}: {r.text[:200]}")
+                r = None
+                for attempt in range(3):
+                    async with gate:
+                        calls["n"] += 1
+                        r = await client.post(
+                            "https://places.googleapis.com/v1/places:searchText",
+                            json=body,
+                            headers={
+                                "Content-Type":    "application/json",
+                                "X-Goog-Api-Key":  GOOGLE_PLACES_API_KEY,
+                                "X-Goog-FieldMask": fields,
+                            },
+                        )
+                    if r.status_code != 429:
+                        break
+                    throttled["n"] += 1
+                    await asyncio.sleep(2 * (attempt + 1))
+
+                if r is None or r.status_code != 200:
+                    err.append(f"HTTP {r.status_code}: {r.text[:200]}" if r is not None
+                               else "no response")
                     break
                 payload = r.json()
                 got.extend(payload.get("places", []) or [])
@@ -212,27 +290,51 @@ async def _google_places_search(
                 (p["location"]["latitude"], p["location"]["longitude"])
                 for p in raw_places if p.get("location")
             ]
-            if limit > 60 and len(pts) >= 5:
-                lo_la, hi_la = min(p[0] for p in pts), max(p[0] for p in pts)
-                lo_lo, hi_lo = min(p[1] for p in pts), max(p[1] for p in pts)
-                if hi_la > lo_la and hi_lo > lo_lo:
-                    n = 3
-                    tiles = []
-                    for i in range(n):
-                        for j in range(n):
-                            tiles.append((
-                                lo_la + (hi_la - lo_la) * i / n,
-                                lo_lo + (hi_lo - lo_lo) * j / n,
-                                lo_la + (hi_la - lo_la) * (i + 1) / n,
-                                lo_lo + (hi_lo - lo_lo) * (j + 1) / n,
-                            ))
+            if limit > 60:
+                # Anchor on the region's real administrative viewport when we can.
+                # A box inferred from the seed results only spans where Google chose
+                # to answer — for "New York City" that is Manhattan, silently missing
+                # Brooklyn, Queens and Staten Island.
+                resolved = await _resolve_viewport(client, loc_s, fields_viewport) if loc_s else None
+                bbox, want_state = (resolved if resolved else (None, ""))
+                if not bbox and len(pts) >= 5:
+                    bbox = (
+                        min(p[0] for p in pts), min(p[1] for p in pts),
+                        max(p[0] for p in pts), max(p[1] for p in pts),
+                    )
+
+                if bbox and bbox[2] > bbox[0] and bbox[3] > bbox[1]:
                     tile_kw = kw_s or loc_s
-                    batches = await asyncio.gather(*[
-                        _walk(client, tile_kw, t, 60) for t in tiles
-                    ], return_exceptions=True)
-                    for b in batches:
-                        if isinstance(b, list):
+                    # Each query still tops out at 60, so a cell that returns a full
+                    # page is hiding more businesses. Subdivide exactly those cells
+                    # and leave sparse ones alone — effort follows density instead of
+                    # being spread evenly over water and parkland.
+                    budget = min(160, max(12, limit // 3))
+                    frontier = [q for r in _quad(bbox) for q in _quad(r)]  # 4x4
+                    for _ in range(4):
+                        if not frontier or budget <= 0 or len(raw_places) >= limit:
+                            break
+                        frontier = frontier[:budget]
+                        budget -= len(frontier)
+                        batches = await asyncio.gather(*[
+                            _walk(client, tile_kw, t, 60) for t in frontier
+                        ], return_exceptions=True)
+                        saturated = []
+                        for rect, b in zip(frontier, batches):
+                            if not isinstance(b, list):
+                                continue
+                            # Saturation is judged before the state filter: a cell
+                            # packed with out-of-state hits is still dense, and
+                            # subdividing it is what separates the two sides.
+                            if len(b) >= 57:
+                                saturated.append(rect)
+                            if want_state:
+                                b = [
+                                    p for p in b
+                                    if _state_of(p.get("formattedAddress", "")) in ("", want_state)
+                                ]
                             _absorb(b)
+                        frontier = [q for r in saturated for q in _quad(r)]
 
         results = []
         for p in raw_places:
@@ -277,7 +379,12 @@ async def _google_places_search(
                 "source":        "google_places",
             })
         results = results[:limit]
-        _note(diag, "google_places", "ok", count=len(results))
+        detail = f"{calls['n']} billed request(s)"
+        if throttled["n"]:
+            detail += f"; backed off {throttled['n']}x on per-minute quota"
+        if err:
+            detail += f"; {len(err)} cell(s) failed: {err[0][:120]}"
+        _note(diag, "google_places", "partial" if err else "ok", detail, count=len(results))
         return results
     except Exception as exc:
         _note(diag, "google_places", "error", f"{type(exc).__name__}: {exc}")
