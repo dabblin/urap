@@ -26,6 +26,107 @@ _LISTING_DOMAINS = {
 
 _PRIORITY_TITLES = ["owner", "founder", "ceo", "president", "manager", "director"]
 
+# Role addresses a business actually reads, best first. Preferred over a random
+# personal address picked up from a page footer.
+_ROLE_PREFIXES = [
+    "info", "contact", "hello", "office", "admin", "reception", "frontdesk",
+    "front.desk", "appointments", "booking", "bookings", "inquiries",
+    "enquiries", "sales", "team", "mail", "help", "support",
+]
+
+# Pages worth trying when a site doesn't link its contact page from the homepage.
+_CONTACT_PATHS = [
+    "", "/contact", "/contact-us", "/contact.html", "/contactus",
+    "/about", "/about-us", "/get-in-touch", "/appointments", "/book",
+]
+
+_MAILTO_RE  = re.compile(r'mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})', re.I)
+_CFEMAIL_RE = re.compile(r'data-cfemail=["\']([0-9a-fA-F]+)["\']')
+_LINK_RE    = re.compile(r'href=["\']([^"\']+)["\']', re.I)
+_CONTACT_LINK_RE = re.compile(r'(contact|about|appointment|book|get-in-touch|reach-us)', re.I)
+
+
+def _decode_cfemail(hex_str: str) -> str:
+    """Cloudflare obfuscates addresses as hex XORed with the first byte. Without
+    this the page only yields the literal '[email protected]' placeholder, which
+    is why so many scrapes came back empty."""
+    try:
+        key = int(hex_str[:2], 16)
+        return "".join(
+            chr(int(hex_str[i:i + 2], 16) ^ key)
+            for i in range(2, len(hex_str), 2)
+        )
+    except Exception:
+        return ""
+
+
+# Small businesses very often publish a free-mail address as their real contact.
+# It scores below an on-domain address but is still a legitimate lead.
+_FREE_MAIL = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+    "icloud.com", "msn.com", "live.com", "comcast.net", "verizon.net",
+    "sbcglobal.net", "att.net", "me.com", "mac.com", "protonmail.com",
+}
+
+# Dummy addresses baked into templates — never a real lead.
+_PLACEHOLDER_LOCALS = {
+    "your", "youremail", "yourname", "email", "name", "username", "user",
+    "someone", "firstname", "lastname", "domain", "address", "mail",
+    "example", "sample", "abc", "xyz", "john.doe", "janedoe", "johndoe",
+}
+
+
+def _email_ok(addr: str) -> bool:
+    low = addr.lower()
+    if any(s in low for s in _SKIP_PATTERNS):
+        return False
+    local_part = low.partition("@")[0]
+    if local_part in _PLACEHOLDER_LOCALS:
+        return False
+    if low.count("@") != 1:
+        return False
+    local, _, host = low.partition("@")
+    if not local or "." not in host or len(host) < 4:
+        return False
+    # Strip things that look like filenames or hashes rather than addresses
+    if len(local) > 40 or re.fullmatch(r"[0-9a-f]{16,}", local):
+        return False
+    return True
+
+
+def _score_email(addr: str, site_domain: str) -> int:
+    """Higher is better. Same-domain beats off-domain; a role address beats a
+    personal one, so outreach lands in the inbox somebody actually monitors."""
+    low = addr.lower()
+    local, _, host = low.partition("@")
+    score = 0
+    if site_domain and (host == site_domain or host.endswith("." + site_domain)):
+        score += 100
+    elif host in _FREE_MAIL:
+        score += 20  # a real small-business inbox, just not on their own domain
+    for i, pref in enumerate(_ROLE_PREFIXES):
+        if local == pref or local.startswith(pref + "."):
+            score += 50 - i
+            break
+    return score
+
+
+def _emails_from_html(html: str) -> list[str]:
+    found: list[str] = []
+    found.extend(_MAILTO_RE.findall(html))
+    for hexed in _CFEMAIL_RE.findall(html):
+        dec = _decode_cfemail(hexed)
+        if dec:
+            found.append(dec)
+    found.extend(_EMAIL_RE.findall(html))
+    out, seen = [], set()
+    for e in found:
+        low = e.lower().strip(".,;:)")
+        if low not in seen and _email_ok(low):
+            seen.add(low)
+            out.append(low)
+    return out
+
 _SOCIAL_RE = {
     "linkedin":  re.compile(r'https?://(?:www\.)?linkedin\.com/company/[A-Za-z0-9\-_%]+', re.I),
     "instagram": re.compile(r'https?://(?:www\.)?instagram\.com/[A-Za-z0-9_.]+', re.I),
@@ -166,30 +267,96 @@ async def _hunter_find(domain: str) -> dict:
 
 
 async def _scrape_email(url: str) -> str:
+    """Pull the best contact address off a business website.
+
+    Fetches the homepage, follows the contact/about links it actually advertises
+    (falling back to common guesses), reads mailto: links and Cloudflare-obfuscated
+    addresses as well as plain text, then ranks candidates so a monitored role
+    inbox on the company's own domain wins over a stray address in a footer.
+    """
     if not url or _is_listing(url):
         return ""
     if not url.startswith("http"):
         url = f"https://{url}"
     base = url.rstrip("/")
-    pages = [base, f"{base}/contact", f"{base}/contact-us"]
-    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
-    async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
-        for page in pages:
+
+    m = re.search(r"https?://([^/]+)", base)
+    site_domain = (m.group(1).lower().replace("www.", "") if m else "")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    # Some sites' bot rules reject the full Chrome UA above but serve this shorter
+    # one, so a block is retried rather than written off as "no email".
+    fallback_headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    }
+    candidates: list[str] = []
+
+    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+
+        async def fetch(page: str) -> str:
             try:
                 r = await client.get(page, headers=headers)
-                if r.status_code != 200:
-                    continue
-                for email in _EMAIL_RE.findall(r.text):
-                    lower = email.lower()
-                    if any(s in lower for s in _SKIP_PATTERNS):
-                        continue
-                    parts = lower.split("@")
-                    if len(parts) != 2 or "." not in parts[1]:
-                        continue
-                    return email
+                if r.status_code in (403, 406, 429):
+                    r = await client.get(page, headers=fallback_headers)
+                ct = r.headers.get("content-type", "")
+                if r.status_code != 200 or "html" not in ct.lower():
+                    return ""
+                # Site builders (Wix, Squarespace) routinely emit >1MB of markup
+                # with the contact address near the end — truncating too early
+                # silently loses it.
+                return r.text[:3_000_000]
             except Exception:
-                continue
-    return ""
+                return ""
+
+        home = await fetch(base)
+        if home:
+            candidates.extend(_emails_from_html(home))
+
+            # Prefer the contact pages the site actually links to; guessed paths
+            # miss anything that isn't named conventionally.
+            linked: list[str] = []
+            for href in _LINK_RE.findall(home):
+                if not _CONTACT_LINK_RE.search(href):
+                    continue
+                if href.startswith("#") or href.lower().startswith("mailto:"):
+                    continue
+                if href.startswith("http"):
+                    if site_domain and site_domain not in href:
+                        continue
+                    full = href
+                else:
+                    full = base + "/" + href.lstrip("/")
+                if full not in linked:
+                    linked.append(full)
+                if len(linked) >= 4:
+                    break
+
+            pages = linked + [base + p for p in _CONTACT_PATHS if p]
+            seen_pages, to_fetch = set(), []
+            for p in pages:
+                key = p.rstrip("/")
+                if key not in seen_pages:
+                    seen_pages.add(key)
+                    to_fetch.append(p)
+                if len(to_fetch) >= 6:
+                    break
+
+            for html in await asyncio.gather(*[fetch(p) for p in to_fetch]):
+                if html:
+                    candidates.extend(_emails_from_html(html))
+
+    if not candidates:
+        return ""
+
+    uniq = list(dict.fromkeys(candidates))
+    best = max(uniq, key=lambda e: _score_email(e, site_domain))
+    # An off-domain address with no role prefix is usually a vendor or a plugin
+    # author scraped out of the markup, not the business — don't email it.
+    return best if _score_email(best, site_domain) > 0 else ""
 
 
 async def discover_contact(

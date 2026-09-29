@@ -580,8 +580,9 @@ async def _hunter_discover(
 
 # ── Hunter.io — domain enrichment ────────────────────────────────────────────
 
-async def _hunter_domain(domain: str) -> dict | None:
+async def _hunter_domain(domain: str, diag: dict | None = None) -> dict | None:
     if not HUNTER_API_KEY:
+        _note(diag, "hunter_domain", "skipped", "HUNTER_API_KEY not set")
         return None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -590,6 +591,9 @@ async def _hunter_domain(domain: str) -> dict | None:
                 params={"domain": domain, "api_key": HUNTER_API_KEY, "limit": 1},
             )
         if r.status_code != 200:
+            # 429 here means the monthly search quota is spent — the single most
+            # likely reason enrichment quietly stops returning anything.
+            _note(diag, "hunter_domain", "error", f"HTTP {r.status_code}: {r.text[:200]}")
             return None
         d    = r.json().get("data", {})
         meta = r.json().get("meta", {})
@@ -610,7 +614,8 @@ async def _hunter_domain(domain: str) -> dict | None:
             "phone":         "",
             "source":        "hunter",
         }
-    except Exception:
+    except Exception as exc:
+        _note(diag, "hunter_domain", "error", f"{type(exc).__name__}: {exc}")
         return None
 
 
@@ -638,11 +643,14 @@ async def _snov_token() -> str:
         return ""
 
 
-async def _snov_domain(domain: str) -> dict | None:
+async def _snov_domain(domain: str, diag: dict | None = None) -> dict | None:
     if not SNOV_CLIENT_ID:
+        _note(diag, "snov", "skipped", "SNOV_CLIENT_ID not set")
         return None
     token = await _snov_token()
     if not token:
+        _note(diag, "snov", "error",
+              "oauth returned no access_token — credentials rejected or revoked")
         return None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -652,6 +660,7 @@ async def _snov_domain(domain: str) -> dict | None:
                 headers={"Authorization": f"Bearer {token}"},
             )
         if r.status_code != 200:
+            _note(diag, "snov", "error", f"HTTP {r.status_code}: {r.text[:200]}")
             return None
         data = r.json().get("data", {})
         return {
@@ -670,7 +679,8 @@ async def _snov_domain(domain: str) -> dict | None:
             "phone":         "",
             "source":        "snov",
         }
-    except Exception:
+    except Exception as exc:
+        _note(diag, "snov", "error", f"{type(exc).__name__}: {exc}")
         return None
 
 
@@ -696,18 +706,28 @@ async def search_companies(
     # ── Mode 1: domain enrichment ──────────────────────────────────────────────
     if domain.strip():
         target = domain.strip().lower()
-        result = await _hunter_domain(target)
+        result = await _hunter_domain(target, diag=diag)
         if result:
             return [result]
-        result = await _snov_domain(target)
+        result = await _snov_domain(target, diag=diag)
         if result:
             return [result]
+        # Distinguish "this domain has no data" from "every provider is down" —
+        # they looked identical before, which hid a total enrichment outage.
+        providers_down = bool(diag) and all(
+            v.get("status") != "ok"
+            for k, v in diag.items() if k in ("hunter_domain", "snov")
+        )
         return [{
             "name":          name or target.split(".")[0].title(),
             "domain":        target,
             "website":       f"https://{target}",
             "industry":      "",
-            "description":   "No enrichment data found for this domain.",
+            "description":   (
+                "Enrichment unavailable — all providers failed (see `sources`)."
+                if providers_down else
+                "No enrichment data found for this domain."
+            ),
             "location":      "",
             "headcount":     "",
             "company_type":  "",
