@@ -17,6 +17,17 @@ FOURSQUARE_API_KEY    = os.getenv("FOURSQUARE_API_KEY", "")
 
 _DOMAIN_RE = re.compile(r"[\w-]+\.(com|io|ai|co|net|org|app|us|tech|dev)", re.I)
 
+# Foursquare retired the v3 host in 2025; the current API needs a dated version header.
+FSQ_API_VERSION = "2025-06-17"
+
+
+def _note(diag, provider: str, status: str, detail: str = "", count: int = 0) -> None:
+    """Record a provider's outcome so dead API keys surface instead of silently
+    degrading the result set to zero."""
+    if diag is None:
+        return
+    diag[provider] = {"status": status, "detail": detail, "count": count}
+
 
 def _name_to_domain(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]", "", name.lower())
@@ -31,8 +42,10 @@ async def _apollo_search(
     industry: str = "",
     name:     str = "",
     limit:    int = 25,
+    diag:     dict | None = None,
 ) -> list[dict]:
     if not APOLLO_API_KEY:
+        _note(diag, "apollo", "skipped", "APOLLO_API_KEY not set")
         return []
 
     payload: dict = {
@@ -56,6 +69,7 @@ async def _apollo_search(
                 headers={"Content-Type": "application/json", "Cache-Control": "no-cache", "X-Api-Key": APOLLO_API_KEY},
             )
         if r.status_code != 200:
+            _note(diag, "apollo", "error", f"HTTP {r.status_code}: {r.text[:200]}")
             return []
 
         results = []
@@ -92,8 +106,10 @@ async def _apollo_search(
                 "phone":         phone,
                 "source":        "apollo",
             })
+        _note(diag, "apollo", "ok", count=len(results))
         return results
-    except Exception:
+    except Exception as exc:
+        _note(diag, "apollo", "error", f"{type(exc).__name__}: {exc}")
         return []
 
 
@@ -103,8 +119,10 @@ async def _google_places_search(
     keywords: str = "",
     location: str = "",
     limit:    int = 25,
+    diag:     dict | None = None,
 ) -> list[dict]:
     if not GOOGLE_PLACES_API_KEY:
+        _note(diag, "google_places", "skipped", "GOOGLE_PLACES_API_KEY not set")
         return []
 
     kw_s, loc_s = keywords.strip(), location.strip()
@@ -123,24 +141,101 @@ async def _google_places_search(
         "places.businessStatus",
         "places.rating",
         "places.userRatingCount",
+        "places.location",
+        "nextPageToken",
     ])
 
+    def _place_key(p: dict) -> str:
+        ph = re.sub(r"\D", "", p.get("nationalPhoneNumber", "") or "")[-10:]
+        return ph or (p.get("formattedAddress", "") or "")
+
     try:
+        err: list[str] = []
+
+        async def _walk(client, text: str, rect: tuple | None, want: int) -> list[dict]:
+            """searchText returns at most 20 per page and 60 per query. Walk
+            nextPageToken until we have `want` or Google runs out."""
+            got: list[dict] = []
+            page_token = ""
+            for _ in range(3):
+                body: dict = {"textQuery": text, "maxResultCount": 20}
+                if rect:
+                    body["locationRestriction"] = {"rectangle": {
+                        "low":  {"latitude": rect[0], "longitude": rect[1]},
+                        "high": {"latitude": rect[2], "longitude": rect[3]},
+                    }}
+                if page_token:
+                    body["pageToken"] = page_token
+                r = await client.post(
+                    "https://places.googleapis.com/v1/places:searchText",
+                    json=body,
+                    headers={
+                        "Content-Type":    "application/json",
+                        "X-Goog-Api-Key":  GOOGLE_PLACES_API_KEY,
+                        "X-Goog-FieldMask": fields,
+                    },
+                )
+                if r.status_code != 200:
+                    err.append(f"HTTP {r.status_code}: {r.text[:200]}")
+                    break
+                payload = r.json()
+                got.extend(payload.get("places", []) or [])
+                page_token = payload.get("nextPageToken") or ""
+                if not page_token or len(got) >= want:
+                    break
+            return got
+
+        raw_places: list[dict] = []
+        seen_keys: set[str] = set()
+
+        def _absorb(places: list[dict]) -> None:
+            for p in places:
+                k = _place_key(p)
+                if not k or k in seen_keys:
+                    continue
+                seen_keys.add(k)
+                raw_places.append(p)
+
         async with httpx.AsyncClient(timeout=12.0) as client:
-            r = await client.post(
-                "https://places.googleapis.com/v1/places:searchText",
-                json={"textQuery": query, "maxResultCount": min(limit, 20)},
-                headers={
-                    "Content-Type":    "application/json",
-                    "X-Goog-Api-Key":  GOOGLE_PLACES_API_KEY,
-                    "X-Goog-FieldMask": fields,
-                },
-            )
-        if r.status_code != 200:
-            return []
+            _absorb(await _walk(client, query, None, limit))
+
+            if not raw_places and err:
+                _note(diag, "google_places", "error", err[0])
+                return []
+
+            # A single text query is capped at 60 results no matter the limit. To go
+            # deeper, tile the area the seed results actually cover and re-query each
+            # cell — this lifts a dense metro from ~60 to several hundred. The bounding
+            # box comes from the results themselves, so it works for any location
+            # without the Geocoding API. Only runs when the caller asked for >60.
+            pts = [
+                (p["location"]["latitude"], p["location"]["longitude"])
+                for p in raw_places if p.get("location")
+            ]
+            if limit > 60 and len(pts) >= 5:
+                lo_la, hi_la = min(p[0] for p in pts), max(p[0] for p in pts)
+                lo_lo, hi_lo = min(p[1] for p in pts), max(p[1] for p in pts)
+                if hi_la > lo_la and hi_lo > lo_lo:
+                    n = 3
+                    tiles = []
+                    for i in range(n):
+                        for j in range(n):
+                            tiles.append((
+                                lo_la + (hi_la - lo_la) * i / n,
+                                lo_lo + (hi_lo - lo_lo) * j / n,
+                                lo_la + (hi_la - lo_la) * (i + 1) / n,
+                                lo_lo + (hi_lo - lo_lo) * (j + 1) / n,
+                            ))
+                    tile_kw = kw_s or loc_s
+                    batches = await asyncio.gather(*[
+                        _walk(client, tile_kw, t, 60) for t in tiles
+                    ], return_exceptions=True)
+                    for b in batches:
+                        if isinstance(b, list):
+                            _absorb(b)
 
         results = []
-        for p in r.json().get("places", []):
+        for p in raw_places:
             name    = p.get("displayName", {}).get("text", "") or ""
             address = p.get("formattedAddress", "") or ""
             phone   = p.get("nationalPhoneNumber", "") or ""
@@ -181,8 +276,11 @@ async def _google_places_search(
                 "phone":         phone,
                 "source":        "google_places",
             })
+        results = results[:limit]
+        _note(diag, "google_places", "ok", count=len(results))
         return results
-    except Exception:
+    except Exception as exc:
+        _note(diag, "google_places", "error", f"{type(exc).__name__}: {exc}")
         return []
 
 
@@ -218,8 +316,10 @@ async def _yelp_search(
     keywords: str = "",
     location: str = "",
     limit:    int = 25,
+    diag:     dict | None = None,
 ) -> list[dict]:
     if not YELP_API_KEY:
+        _note(diag, "yelp", "skipped", "YELP_API_KEY not set")
         return []
 
     try:
@@ -234,6 +334,7 @@ async def _yelp_search(
                 headers={"Authorization": f"Bearer {YELP_API_KEY}"},
             )
         if r.status_code != 200:
+            _note(diag, "yelp", "error", f"HTTP {r.status_code}: {r.text[:200]}")
             return []
 
         results = []
@@ -277,8 +378,10 @@ async def _yelp_search(
             if sig_tokens:
                 results = [r for r in results if any(t in r["location"].lower() for t in sig_tokens)]
 
+        _note(diag, "yelp", "ok", count=len(results))
         return results
-    except Exception:
+    except Exception as exc:
+        _note(diag, "yelp", "error", f"{type(exc).__name__}: {exc}")
         return []
 
 
@@ -288,23 +391,30 @@ async def _foursquare_search(
     keywords: str = "",
     location: str = "",
     limit:    int = 25,
+    diag:     dict | None = None,
 ) -> list[dict]:
     if not FOURSQUARE_API_KEY:
+        _note(diag, "foursquare", "skipped", "FOURSQUARE_API_KEY not set")
         return []
 
     try:
         async with httpx.AsyncClient(timeout=12.0) as client:
             r = await client.get(
-                "https://api.foursquare.com/v3/places/search",
+                "https://places-api.foursquare.com/places/search",
                 params={
                     "query": keywords,
                     "near":  location or "",
                     "limit": min(limit, 50),
                     "fields": "name,location,tel,website,categories",
                 },
-                headers={"Authorization": FOURSQUARE_API_KEY},
+                headers={
+                    "Authorization":        f"Bearer {FOURSQUARE_API_KEY}",
+                    "X-Places-Api-Version": FSQ_API_VERSION,
+                    "Accept":               "application/json",
+                },
             )
         if r.status_code != 200:
+            _note(diag, "foursquare", "error", f"HTTP {r.status_code}: {r.text[:200]}")
             return []
 
         results = []
@@ -341,13 +451,33 @@ async def _foursquare_search(
                 "phone":         phone,
                 "source":        "foursquare",
             })
+        _note(diag, "foursquare", "ok", count=len(results))
         return results
-    except Exception:
+    except Exception as exc:
+        _note(diag, "foursquare", "error", f"{type(exc).__name__}: {exc}")
         return []
 
 
+_STREET_RE = re.compile(r"^\s*(\d+)\s+([a-z]+)", re.I)
+
+
+def _street_key(r: dict) -> str:
+    """Street number + first street word, e.g. '110 Bergen St (at Rutgers…)' → '110bergen'.
+    Stable across providers, which format the rest of the address differently, while
+    still separating branches of a chain that share a name."""
+    addr = r.get("description", "") or ""
+    m = _STREET_RE.match(addr.split(",")[0])
+    return f"{m.group(1)}{m.group(2).lower()}" if m else ""
+
+
 def _dedup_results(lists: list[list[dict]]) -> list[dict]:
-    """Merge results from multiple sources, dedup by phone or name+location."""
+    """Merge results from multiple sources.
+
+    A record is a duplicate if EITHER its phone OR its name+address matches one
+    already kept. Phone alone was not enough: providers list the same business
+    under different numbers (main line vs. department), so identical storefronts
+    survived twice and got emailed twice.
+    """
     seen: set[str] = set()
     merged = []
     for result_list in lists:
@@ -356,16 +486,96 @@ def _dedup_results(lists: list[list[dict]]) -> list[dict]:
             raw_phone = re.sub(r"\D", "", r.get("phone", ""))
             phone_key = raw_phone[-10:] if len(raw_phone) >= 10 else ""
 
-            # Normalize name for fuzzy dedup
-            name_key = re.sub(r"[^a-z0-9]", "", r.get("name", "").lower())[:20]
-            loc_key  = re.sub(r"[^a-z0-9]", "", r.get("location", "").lower())[:10]
+            # Normalize name; prefer street address over city, so two branches of
+            # the same chain in one city stay distinct. Fall back to city (digits
+            # stripped — Google says "Bronx, NY 10467", Foursquare "Bronx, NY").
+            name_key  = re.sub(r"[^a-z0-9]", "", r.get("name", "").lower())[:20]
+            place_key = _street_key(r) or re.sub(r"[^a-z]", "", r.get("location", "").lower())[:10]
+            if name_key and place_key:
+                ident_key = f"{name_key}_{place_key}"
+            else:
+                # Corporate records (e.g. Hunter) carry a domain but no phone or
+                # address. Without this they match on nothing and get dropped.
+                ident_key = f"d:{r.get('domain','').lower()}" if r.get("domain") else ""
 
-            fingerprint = phone_key if phone_key else f"{name_key}_{loc_key}"
-            if not fingerprint or fingerprint in seen:
+            keys = {k for k in (phone_key, ident_key) if k}
+            if not keys or (keys & seen):
                 continue
-            seen.add(fingerprint)
+            seen |= keys
             merged.append(r)
     return merged
+
+
+# ── Hunter.io — B2B corporate discovery ──────────────────────────────────────
+
+async def _hunter_discover(
+    keywords: str = "",
+    location: str = "",
+    industry: str = "",
+    limit:    int = 25,
+    diag:     dict | None = None,
+) -> list[dict]:
+    """Hunter's /discover finds companies by free-text description. Lower volume
+    than the local directories, but every hit comes with a known-email count, so
+    these are corporate leads that are actually contactable — the role Apollo was
+    meant to fill before it turned out to need a paid plan."""
+    if not HUNTER_API_KEY:
+        _note(diag, "hunter_discover", "skipped", "HUNTER_API_KEY not set")
+        return []
+
+    parts = [p for p in (keywords, industry) if p and p.strip()]
+    if location.strip():
+        parts.append(f"in {location.strip()}")
+    query = " ".join(parts).strip()
+    if not query:
+        _note(diag, "hunter_discover", "skipped", "no query terms")
+        return []
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Hunter's free plan rejects any explicit limit other than 100
+            # ("pagination_error"), so omit it and slice the page ourselves.
+            r = await client.post(
+                "https://api.hunter.io/v2/discover",
+                params={"api_key": HUNTER_API_KEY},
+                json={"query": query},
+            )
+        if r.status_code != 200:
+            _note(diag, "hunter_discover", "error", f"HTTP {r.status_code}: {r.text[:200]}")
+            return []
+
+        payload = r.json()
+        if payload.get("errors"):
+            _note(diag, "hunter_discover", "error", str(payload["errors"])[:200])
+            return []
+
+        results = []
+        for o in payload.get("data", []) or []:
+            dom = (o.get("domain") or "").lower()
+            if not dom:
+                continue
+            results.append({
+                "name":          o.get("organization") or dom.split(".")[0].title(),
+                "domain":        dom,
+                "website":       f"https://{dom}",
+                "industry":      industry or "",
+                "description":   "",
+                "location":      "",
+                "headcount":     "",
+                "company_type":  "",
+                "technologies":  [],
+                "email_pattern": "",
+                "contact_count": (o.get("emails_count") or {}).get("total") or 0,
+                "linkedin":      "",
+                "phone":         "",
+                "source":        "hunter_discover",
+            })
+        results = results[:limit]
+        _note(diag, "hunter_discover", "ok", count=len(results))
+        return results
+    except Exception as exc:
+        _note(diag, "hunter_discover", "error", f"{type(exc).__name__}: {exc}")
+        return []
 
 
 # ── Hunter.io — domain enrichment ────────────────────────────────────────────
@@ -473,11 +683,15 @@ async def search_companies(
     location: str = "",
     industry: str = "",
     limit:    int = 25,
+    diag:     dict | None = None,
 ) -> list[dict]:
     """
     Two modes:
     - domain provided  → Hunter.io enrichment + Snov.io fallback (single company, rich metadata)
     - keywords/location/industry → Apollo.io discovery (list of matching companies)
+
+    Pass `diag` (a dict) to receive per-provider status, so a dead API key shows up
+    as an error instead of silently shrinking the result set.
     """
     # ── Mode 1: domain enrichment ──────────────────────────────────────────────
     if domain.strip():
@@ -512,33 +726,32 @@ async def search_companies(
         # local providers (Yelp/Google/FSQ) get a non-empty term and respect the location.
         local_kw = kw or industry
 
-        # Run all free local sources in parallel
-        google_task = _google_places_search(keywords=local_kw, location=location, limit=limit) \
-            if GOOGLE_PLACES_API_KEY and (local_kw or location) else asyncio.sleep(0, result=[])
-        yelp_task = _yelp_search(keywords=local_kw, location=location, limit=limit) \
-            if YELP_API_KEY and (local_kw or location) else asyncio.sleep(0, result=[])
-        fsq_task = _foursquare_search(keywords=local_kw, location=location, limit=limit) \
-            if FOURSQUARE_API_KEY and (local_kw or location) else asyncio.sleep(0, result=[])
-
-        google_res, yelp_res, fsq_res = await asyncio.gather(
-            google_task, yelp_task, fsq_task
+        # Run every source in parallel. Apollo used to be a fallback that only fired
+        # when the local providers returned nothing — which for a located search was
+        # never, so its B2B corporate records were unreachable. It now merges in.
+        local_ok = bool(local_kw or location)
+        google_task = _google_places_search(keywords=local_kw, location=location, limit=limit, diag=diag) \
+            if local_ok else asyncio.sleep(0, result=[])
+        yelp_task = _yelp_search(keywords=local_kw, location=location, limit=limit, diag=diag) \
+            if local_ok else asyncio.sleep(0, result=[])
+        fsq_task = _foursquare_search(keywords=local_kw, location=location, limit=limit, diag=diag) \
+            if local_ok else asyncio.sleep(0, result=[])
+        apollo_task = _apollo_search(
+            keywords=keywords, location=location, industry=industry, name=name,
+            limit=limit, diag=diag,
+        )
+        hunter_task = _hunter_discover(
+            keywords=kw, location=location, industry=industry, limit=limit, diag=diag,
         )
 
-        # Merge with dedup — Google Places first (richest data), then Yelp, then Foursquare
-        merged = _dedup_results([google_res, yelp_res, fsq_res])
-        if merged:
-            return merged
+        google_res, yelp_res, fsq_res, apollo_res, hunter_res = await asyncio.gather(
+            google_task, yelp_task, fsq_task, apollo_task, hunter_task
+        )
 
-        # Apollo: B2B corporate search (requires paid plan)
-        if APOLLO_API_KEY:
-            results = await _apollo_search(
-                keywords=keywords,
-                location=location,
-                industry=industry,
-                name=name,
-                limit=limit,
-            )
-            if results:
-                return results
+        # Merge with dedup — richest source first so its record wins a collision:
+        # Google Places, then Foursquare (phone + website), Yelp, Apollo, Hunter.
+        return _dedup_results(
+            [google_res, fsq_res, yelp_res, apollo_res, hunter_res]
+        )[:limit]
 
     return []

@@ -485,6 +485,58 @@ async def delete_lead_list(list_id: str, x_tenant_id: str = Header(...)):
     return {"deleted": True, "list_id": list_id}
 
 
+# Shared hosting/booking/social domains. Many unrelated businesses sit behind these,
+# so they can never identify a company — matching on them would flag a fresh lead as
+# already-contacted just because some other tenant of the same platform was emailed.
+_SHARED_DOMAINS = {
+    "squareup.com", "square.site", "squarespace.com", "wixsite.com", "wix.com",
+    "business.site", "godaddysites.com", "weebly.com", "webnode.com",
+    "facebook.com", "instagram.com", "linktr.ee", "linkedin.com", "yelp.com",
+    "google.com", "sites.google.com", "shopify.com", "myshopify.com",
+    "wordpress.com", "blogspot.com", "bookedin.com", "vagaro.com", "booksy.com",
+    "schedulicity.com", "setmore.com", "acuityscheduling.com", "gmail.com",
+    "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "icloud.com",
+}
+
+
+def _contacted_domains(tenant_id: str, days: int = 90) -> set[str]:
+    """Domains this tenant has already emailed in the last `days`.
+
+    urap_campaign_sends.company is never populated, so the domain lifted off
+    to_email is the only reliable join back to a search result.
+    """
+    from datetime import datetime, timedelta, timezone
+    from supabase import create_client
+
+    try:
+        db = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        domains: set[str] = set()
+        page, page_size = 0, 1000
+        while page < 10:  # cap the scan; 10k sends is far beyond current volume
+            rows = (
+                db.table("urap_campaign_sends")
+                .select("to_email")
+                .eq("tenant_id", tenant_id)
+                .eq("status", "sent")
+                .gte("sent_at", since)
+                .range(page * page_size, (page + 1) * page_size - 1)
+                .execute()
+            ).data or []
+            for r in rows:
+                addr = (r.get("to_email") or "").strip().lower()
+                if "@" in addr:
+                    dom = addr.rsplit("@", 1)[1]
+                    if dom not in _SHARED_DOMAINS:
+                        domains.add(dom)
+            if len(rows) < page_size:
+                break
+            page += 1
+        return domains
+    except Exception:
+        return set()
+
+
 @app.post("/companies/search", dependencies=[Depends(require_api_key)])
 async def company_search(body: CompanySearchRequest, x_tenant_id: str = Header(...)):
     """
@@ -492,15 +544,34 @@ async def company_search(body: CompanySearchRequest, x_tenant_id: str = Header(.
     - domain provided → Hunter.io/Snov.io enrichment (single company, rich metadata)
     - keywords/location/industry → Apollo.io discovery (list of matching companies)
     """
+    diag: dict = {}
     companies = await search_companies(
         domain=body.domain or "",
         name=body.name or "",
         keywords=body.keywords or "",
         location=body.location or "",
         industry=body.industry or "",
-        limit=min(body.limit, 100),
+        limit=min(body.limit, 500),
+        diag=diag,
     )
-    return {"companies": companies, "count": len(companies)}
+
+    # Flag (never hide) companies already emailed in the last 90 days, so a list
+    # shows market coverage while making the genuinely fresh leads obvious.
+    contacted = await asyncio.to_thread(_contacted_domains, x_tenant_id)
+    flagged = 0
+    for c in companies:
+        dom = (c.get("domain") or "").strip().lower()
+        hit = bool(dom and dom not in _SHARED_DOMAINS and dom in contacted)
+        c["already_contacted"] = hit
+        flagged += hit
+
+    return {
+        "companies": companies,
+        "count": len(companies),
+        "already_contacted": flagged,
+        "fresh": len(companies) - flagged,
+        "sources": diag,
+    }
 
 
 # ── Sprint 2 — Module VI: TCPA Consent Ledger ────────────────────────────────
